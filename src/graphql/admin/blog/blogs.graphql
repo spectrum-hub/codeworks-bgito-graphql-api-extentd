@@ -1,0 +1,48 @@
+#Velocity\Blogs Related APIs
+extend type Query {
+    cmsBlogs(
+        input: FilterCmsPageInput
+        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Cms\\FilterCmsPage"),
+    ): [CmsPage!] @paginate(
+        type: "PAGINATOR"
+        defaultCount: 2
+        model: "Webkul\\CMS\\Models\\Page"
+    )
+
+    cmsBlog(id: ID @eq): CmsPage @find(model: "Webkul\\CMS\\Models\\Page")
+}
+
+
+input FilterCmsPageInput {
+    id: Int
+    pageTitle: String @rename(attribute: "page_title")
+    urlKey: String @rename(attribute: "url_key")
+}
+ 
+
+type CmsPageResponse {
+    success: Boolean!
+    message: String!
+    page: CmsPage
+}
+
+type CmsPage {
+    id: ID!
+    layout: String
+    createdAt: DateTime @rename(attribute: "created_at")
+    updatedAt: DateTime @rename(attribute: "updated_at")
+    channels: [Channel!] @belongsToMany(relation: "channels")
+    translations: [CmsTranslation!] @hasMany
+}
+
+type CmsTranslation {
+    id: ID!
+    urlKey: String! @rename(attribute: "url_key")
+    metaDescription: String @rename(attribute: "meta_description")
+    metaTitle: String @rename(attribute: "meta_title")
+    pageTitle: String @rename(attribute: "page_title")
+    metaKeywords: String @rename(attribute: "meta_keywords")
+    htmlContent: String @rename(attribute: "html_content")
+    locale: String!
+    cmsPageId: ID! @rename(attribute: "cms_page_id")
+}
