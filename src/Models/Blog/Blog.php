@@ -87,7 +87,7 @@ class Blog extends Model implements BlogContract
 
 
     
-    public function translations(): HasMany
+    public function translations()
     {
         return [];
     }
