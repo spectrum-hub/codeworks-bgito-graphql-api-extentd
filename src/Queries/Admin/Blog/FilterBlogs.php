@@ -8,22 +8,35 @@ use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterBlogs extends BaseFilter
 {
-    /**
-     * Filter the query by the given input.
-     */
     public function __invoke(Builder $query, array $input): Builder
     {
+        // Exclude excluded fields
+
+
+        /**
+  
+         * 
+         * input: Энэ нь GraphQL-ийн ашиглагчийн өгсөн бүх параметрүүдийг агуулсан массив юм.
+         * Тухайлбал, name, description, id, гэх мэт утгууд.
+         * Arr::except(): Энэ функц нь Laravel-ийн Arr туслах классын нэг хэсэг бөгөөд өгөгдсөн массивын 
+         * доторх тодорхой түлхүүрүүдийг хасаж шинэ массив буцаадаг.
+         * ['page_title', 'url_key']: Энэ нь хасах түлхүүрүүдийн жагсаалт юм. Тиймээс page_title 
+         * болон url_key гэсэн түлхүүрүүдийг $input массивынхаас хасна.
+         * 
+         */
+        
         $params = Arr::except($input, ['page_title', 'url_key']);
+        
+        // Apply filters for name and description
+        if (isset($input['name'])) {
+            $query->where('name', 'like', '%' . $input['name'] . '%');
+        }
 
-        // $query->whereHas('translations', function ($q) use ($input) {
-        //     if (isset($input['page_title'])) {
-        //         $q->where('page_title', $input['page_title']);
-        //     }
-        //     if (isset($input['url_key'])) {
-        //         $q->where('url_key', $input['url_key']);
-        //     }
-        // });
+        if (isset($input['description'])) {
+            $query->where('description', 'like', '%' . $input['description'] . '%');
+        }
 
+        // Apply other filters from the input
         return $query->where($params);
     }
 }
