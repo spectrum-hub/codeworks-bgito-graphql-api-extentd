@@ -1,6 +1,6 @@
 extend type Query {
     blogs(
-        input: FilterKeyValue
+        input: [FilterKeyValue]
         @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
     ): [BlogType!] 
     @paginate(
