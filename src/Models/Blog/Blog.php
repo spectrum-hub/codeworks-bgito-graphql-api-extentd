@@ -87,4 +87,3 @@ class Blog extends Model implements BlogContract
         return $categorys;
     }
 }
-a
