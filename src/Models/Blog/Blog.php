@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Storage;
 use Webbycrown\BlogBagisto\Models\Category;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Builder; 
+use Illuminate\Database\Eloquent\Builder;
+
 class Blog extends Model implements BlogContract
 {
     use HasFactory;
@@ -78,21 +79,12 @@ class Blog extends Model implements BlogContract
     public function getAssignCategorysAttribute()
     {
         $categorys = [];
-        $categories_ids = array_values( array_unique( array_merge( explode( ',', $this->default_category ), explode( ',', $this->categorys ) ) ) );
-        if ( is_array($categories_ids) && !empty($categories_ids) && count($categories_ids) > 0 ) {
+        $categories_ids = array_values(array_unique(array_merge(explode(',', $this->default_category), explode(',', $this->categorys))));
+        if (is_array($categories_ids) && !empty($categories_ids) && count($categories_ids) > 0) {
             $categories = Category::whereIn('id', $categories_ids)->get();
-            $categorys = ( !empty($categories) && count($categories) > 0 ) ? $categories : array();
+            $categorys = (!empty($categories) && count($categories) > 0) ? $categories : array();
         }
         return $categorys;
     }
-    
-    
-
-
-
-
-
-
-
-
 }
+a
