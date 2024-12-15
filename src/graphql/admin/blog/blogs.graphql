@@ -1,17 +1,17 @@
-#Velocity\Blogs Related APIs
 extend type Query {
     blogs(
         input: FilterBlogInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs"),
-    ): [BlogType!] @paginate(
+        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
+    ): [BlogType!] 
+    @paginate(
         type: "PAGINATOR"
-        defaultCount: 2
+        defaultCount: 10
         model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
     )
 
-    blog(id: ID @eq): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
+    blog(id: ID! @eq): BlogType 
+    @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 }
-
 
 input FilterBlogInput {
     id: Int
@@ -28,8 +28,8 @@ type BlogType {
     author: String
     authorId: ID @rename(attribute: "author_id")
     channels: [Channel!] @belongsToMany(relation: "channels")
-    assignCategorys: [AssignCategoryType!] @computed(name: "assign_categorys")
-    srcUrl: String @computed(name: "src_url")
+    assignCategorys: [AssignCategoryType!] @rename(attribute: "assign_categorys")
+    srcUrl: String @rename(attribute: "src_url")
     status: Boolean
     allowComments: Boolean @rename(attribute: "allow_comments")
     metaTitle: String @rename(attribute: "meta_title")
@@ -40,7 +40,7 @@ type BlogType {
     updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
-type AssignCategorys {
+type AssignCategoryType {
     id: ID!
     name: String!
     metaDescription: String @rename(attribute: "meta_description")
