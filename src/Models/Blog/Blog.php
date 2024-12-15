@@ -8,7 +8,8 @@ use Webbycrown\BlogBagisto\Contracts\Blog as BlogContract;
 use Webkul\Core\Models\ChannelProxy;
 use Illuminate\Support\Facades\Storage;
 use Webbycrown\BlogBagisto\Models\Category;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 class Blog extends Model implements BlogContract
 {
     use HasFactory;
@@ -86,9 +87,9 @@ class Blog extends Model implements BlogContract
 
 
     
-    public function translations()
+    public function translations(): HasMany
     {
-        return null;
+        return [];
     }
 
 }
