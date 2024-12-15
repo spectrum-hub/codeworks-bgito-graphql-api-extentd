@@ -2,7 +2,7 @@
 extend type Query {
     blogs(
         input: FilterCmsPageInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Cms\\FilterCmsPage"),
+        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs"),
     ): [CmsPage!] @paginate(
         type: "PAGINATOR"
         defaultCount: 2
