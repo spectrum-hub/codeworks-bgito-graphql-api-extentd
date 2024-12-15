@@ -1,19 +1,19 @@
-#Velocity\Blogs Related APIs
 extend type Query {
     blogs(
-        input: FilterCmsPageInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs"),
-    ): [BlogType!] @paginate(
+        input: FilterBlogInput
+        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
+    ): [BlogType!] 
+    @paginate(
         type: "PAGINATOR"
-        defaultCount: 2
+        defaultCount: 10
         model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
     )
 
-    blog(id: ID @eq): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
+    blog(id: ID! @eq): BlogType 
+    @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 }
 
-
-input FilterCmsPageInput {
+input FilterBlogInput {
     id: Int
     name: String @rename(attribute: "name")
     slug: String @rename(attribute: "slug")
@@ -22,13 +22,25 @@ input FilterCmsPageInput {
 type BlogType {
     id: ID!
     name: String
+    slug: String
+    shortDescription: String @rename(attribute: "short_description")
+    description: String
+    author: String
+    authorId: ID @rename(attribute: "author_id")
+    channels: [Channel!] @belongsToMany(relation: "channels")
+    assignCategorys: [AssignCategoryType!] @computed(name: "assign_categorys")
+    srcUrl: String @computed(name: "src_url")
+    status: Boolean
+    allowComments: Boolean @rename(attribute: "allow_comments")
+    metaTitle: String @rename(attribute: "meta_title")
+    metaDescription: String @rename(attribute: "meta_description")
+    metaKeywords: String @rename(attribute: "meta_keywords")
+    publishedAt: DateTime @rename(attribute: "published_at")
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
-    channels: [Channel!] @belongsToMany(relation: "channels")
-    assign_categorys: [AssignCategorys!] @hasMany
 }
 
-type AssignCategorys {
+type AssignCategoryType {
     id: ID!
     name: String!
     metaDescription: String @rename(attribute: "meta_description")
@@ -37,4 +49,9 @@ type AssignCategorys {
     metaKeywords: String @rename(attribute: "meta_keywords")
     htmlContent: String @rename(attribute: "html_content")
     locale: String!
+}
+
+type Channel {
+    id: ID!
+    name: String!
 }
