@@ -15,7 +15,7 @@ extend type Query {
 
 input FilterCmsPageInput {
     id: Int
-    pageTitle: String @rename(attribute: "page_title")
+    name: String @rename(attribute: "name")
     slug: String @rename(attribute: "slug")
 }
 
