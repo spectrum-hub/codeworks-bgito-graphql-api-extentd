@@ -11,7 +11,10 @@ use Webbycrown\BlogBagisto\Models\Category;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
-class Blog extends Model implements BlogContract
+use Webkul\Core\Eloquent\TranslatableModel;
+
+
+class Blog extends TranslatableModel implements BlogContract
 {
     use HasFactory;
 
@@ -38,6 +41,37 @@ class Blog extends Model implements BlogContract
         'published_at'
     ];
 
+
+
+    protected $translationForeignKey = 'id';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+
+
+    /**
+     * The attributes that are translatable.
+     *
+     * @var array
+     */
+    public $translatedAttributes = [
+        'short_description',
+        'description',
+        'meta_description',
+        'meta_title',
+        'page_title',
+        'meta_keywords',
+        'html_content',
+        'url_key',
+        'name',
+    ];
+
+    protected $with = ['translations'];
+
+    
     /**
      * Appends.
      *
@@ -77,7 +111,7 @@ class Blog extends Model implements BlogContract
 
     public function getAssignCategorysAttribute()
     {
-        $categorys = array();
+        $categorys = [];
         $categories_ids = array_values( array_unique( array_merge( explode( ',', $this->default_category ), explode( ',', $this->categorys ) ) ) );
         if ( is_array($categories_ids) && !empty($categories_ids) && count($categories_ids) > 0 ) {
             $categories = Category::whereIn('id', $categories_ids)->get();
