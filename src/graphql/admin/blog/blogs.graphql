@@ -19,12 +19,6 @@ input FilterBlogInput {
     slug: String @rename(attribute: "slug")
 }
 
-input FilterKeyValue {
-  key: String!
-  value: String!
-}
-
-
 type BlogType {
     id: ID!
     name: String
