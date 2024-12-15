@@ -22,10 +22,22 @@ input FilterBlogInput {
 type BlogType {
     id: ID!
     name: String
+    slug: String
+    shortDescription: String @rename(attribute: "short_description")
+    description: String
+    author: String
+    authorId: ID @rename(attribute: "author_id")
+    channels: [Channel!] @belongsToMany(relation: "channels")
+    assignCategorys: [AssignCategoryType!] @computed(name: "assign_categorys")
+    srcUrl: String @computed(name: "src_url")
+    status: Boolean
+    allowComments: Boolean @rename(attribute: "allow_comments")
+    metaTitle: String @rename(attribute: "meta_title")
+    metaDescription: String @rename(attribute: "meta_description")
+    metaKeywords: String @rename(attribute: "meta_keywords")
+    publishedAt: DateTime @rename(attribute: "published_at")
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
-    channels: [Channel!] @belongsToMany(relation: "channels")
-    assign_categorys: [AssignCategorys!] @hasMany
 }
 
 type AssignCategorys {
