@@ -1,6 +1,6 @@
 #Velocity\Blogs Related APIs
 extend type Query {
-    cmsBlogs(
+    blogs(
         input: FilterCmsPageInput
         @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Cms\\FilterCmsPage"),
     ): [CmsPage!] @paginate(
@@ -9,7 +9,7 @@ extend type Query {
         model: "Webkul\\CMS\\Models\\Page"
     )
 
-    cmsBlog(id: ID @eq): CmsPage @find(model: "Webkul\\CMS\\Models\\Page")
+    blog(id: ID @eq): CmsPage @find(model: "Webkul\\CMS\\Models\\Page")
 }
 
 
