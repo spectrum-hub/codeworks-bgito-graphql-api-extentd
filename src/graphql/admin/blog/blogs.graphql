@@ -1,6 +1,6 @@
 extend type Query {
     blogs(
-        input: FilterBlogInput
+        input: FilterKeyValue
         @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
     ): [BlogType!] 
     @paginate(
@@ -18,6 +18,12 @@ input FilterBlogInput {
     name: String @rename(attribute: "name")
     slug: String @rename(attribute: "slug")
 }
+
+input FilterKeyValue {
+  key: String!
+  value: String!
+}
+
 
 type BlogType {
     id: ID!
