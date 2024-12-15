@@ -1,5 +1,5 @@
 {
-    "name": "codeworks/bagist-graphql-api-extend",
+    "name": "codeworks/graphql-api-extend-bagisto",
     "description": "Codeworks GraphQL API extend for my project ",
     "license": "MIT",
     "require": {
@@ -22,3 +22,4 @@
     },
     "minimum-stability": "dev"
 }
+ 
