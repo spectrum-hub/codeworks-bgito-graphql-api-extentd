@@ -50,3 +50,8 @@ type AssignCategorys {
     htmlContent: String @rename(attribute: "html_content")
     locale: String!
 }
+
+type Channel {
+    id: ID!
+    name: String!
+}
