@@ -18,8 +18,6 @@ input FilterCmsPageInput {
     pageTitle: String @rename(attribute: "page_title")
     urlKey: String @rename(attribute: "url_key")
 }
- 
-
 
 type CmsPage {
     id: ID!
