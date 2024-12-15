@@ -8,10 +8,10 @@ use Webbycrown\BlogBagisto\Contracts\Blog as BlogContract;
 use Webkul\Core\Models\ChannelProxy;
 use Illuminate\Support\Facades\Storage;
 use Webbycrown\BlogBagisto\Models\Category;
-use Webkul\Core\Eloquent\TranslatableModel;
-
-
-class Blog extends TranslatableModel implements BlogContract
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Builder; 
+class Blog extends Model implements BlogContract
 {
     use HasFactory;
 
@@ -37,37 +37,6 @@ class Blog extends TranslatableModel implements BlogContract
         'meta_keywords',
         'published_at'
     ];
-
-
-
-    protected $translationForeignKey = 'id';
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
-
-
-    /**
-     * The attributes that are translatable.
-     *
-     * @var array
-     */
-    public $translatedAttributes = [
-        'short_description',
-        'description',
-        'meta_description',
-        'meta_title',
-        'page_title',
-        'meta_keywords',
-        'html_content',
-        'url_key',
-        'name',
-    ];
-
-    protected $with = ['translations'];
-
 
     /**
      * Appends.
