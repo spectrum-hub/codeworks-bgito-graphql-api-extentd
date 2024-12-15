@@ -1,11 +1,11 @@
 extend type Query {
     blogs(
-        input: FilterBlogInput
+        input: FilterKeyValue
         @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
     ): [BlogType!] 
     @paginate(
         type: "PAGINATOR"
-        defaultCount: 10
+        defaultCount: 100
         model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
     )
 
@@ -13,11 +13,17 @@ extend type Query {
     @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 }
 
-input FilterBlogInput {
-    id: Int
-    name: String @rename(attribute: "name")
-    slug: String @rename(attribute: "slug")
+# input FilterBlogInput {
+#     id: Int
+#     name: String @rename(attribute: "name")
+#     slug: String @rename(attribute: "slug")
+# }
+
+input FilterKeyValue {
+  key: String!
+  value: String!
 }
+
 
 type BlogType {
     id: ID!
