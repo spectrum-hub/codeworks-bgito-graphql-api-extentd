@@ -1,6 +1,6 @@
 <?php
 
-namespace Webkul\GraphQLAPI\Models;
+namespace Webkul\GraphQLAPI\Models\Blog;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
