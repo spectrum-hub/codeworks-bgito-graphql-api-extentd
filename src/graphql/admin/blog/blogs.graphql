@@ -20,11 +20,6 @@ input FilterCmsPageInput {
 }
  
 
-type CmsPageResponse {
-    success: Boolean!
-    message: String!
-    page: CmsPage
-}
 
 type CmsPage {
     id: ID!
