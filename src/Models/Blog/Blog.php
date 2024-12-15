@@ -8,9 +8,6 @@ use Webbycrown\BlogBagisto\Contracts\Blog as BlogContract;
 use Webkul\Core\Models\ChannelProxy;
 use Illuminate\Support\Facades\Storage;
 use Webbycrown\BlogBagisto\Models\Category;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\Core\Eloquent\TranslatableModel;
 
 
@@ -71,7 +68,7 @@ class Blog extends TranslatableModel implements BlogContract
 
     protected $with = ['translations'];
 
-    
+
     /**
      * Appends.
      *
