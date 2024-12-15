@@ -49,6 +49,15 @@ type AssignCategoryType {
     metaKeywords: String @rename(attribute: "meta_keywords")
     htmlContent: String @rename(attribute: "html_content")
     locale: String!
+    slug: String!
+    description: String!
+    image: String!
+    status: String! 
+    parentId: Int! @rename(attribute: "parent_id")
+    createdAt: DateTime! @rename(attribute: "created_at")
+    updatedAt: DateTime! @rename(attribute: "updated_at")
+    imageUrl: String @rename(attribute: "image_url")
+    parentCategoryName: String @rename(attribute: "parent_category_name")
 }
 
 type Channel {
