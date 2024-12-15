@@ -3,39 +3,38 @@ extend type Query {
     blogs(
         input: FilterCmsPageInput
         @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs"),
-    ): [CmsPage!] @paginate(
+    ): [BlogType!] @paginate(
         type: "PAGINATOR"
         defaultCount: 2
-        model: "Webkul\\CMS\\Models\\Page"
+        model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
     )
 
-    blog(id: ID @eq): CmsPage @find(model: "Webkul\\CMS\\Models\\Page")
+    blog(id: ID @eq): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 }
 
 
 input FilterCmsPageInput {
     id: Int
     pageTitle: String @rename(attribute: "page_title")
-    urlKey: String @rename(attribute: "url_key")
+    slug: String @rename(attribute: "slug")
 }
 
-type CmsPage {
+type BlogType {
     id: ID!
-    layout: String
+    name: String
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
     channels: [Channel!] @belongsToMany(relation: "channels")
-    translations: [CmsTranslation!] @hasMany
+    assign_categorys: [AssignCategorys!] @hasMany
 }
 
-type CmsTranslation {
+type AssignCategorys {
     id: ID!
-    urlKey: String! @rename(attribute: "url_key")
+    name: String!
     metaDescription: String @rename(attribute: "meta_description")
     metaTitle: String @rename(attribute: "meta_title")
     pageTitle: String @rename(attribute: "page_title")
     metaKeywords: String @rename(attribute: "meta_keywords")
     htmlContent: String @rename(attribute: "html_content")
     locale: String!
-    cmsPageId: ID! @rename(attribute: "cms_page_id")
 }
