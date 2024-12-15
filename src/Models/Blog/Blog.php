@@ -84,4 +84,11 @@ class Blog extends Model implements BlogContract
         return $categorys;
     }
 
+
+    
+    public function translations()
+    {
+        return null;
+    }
+
 }
