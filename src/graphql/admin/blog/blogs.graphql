@@ -10,12 +10,11 @@ extend type Query {
     )
 
   blogDetail(
-    input: [FilterKeyValue]
-      @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FindBlog")
+    input: [FilterKeyValue] @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FindBlog")
   ): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 
-  blog(id: ID! @eq): BlogType
-    @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
+  blog(id: ID! @eq): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
+    
 }
 
 input FilterKeyValue {

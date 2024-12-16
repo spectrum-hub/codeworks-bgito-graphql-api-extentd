@@ -8,27 +8,32 @@ use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FindBlog extends BaseFilter
 {
+    /**
+     * Apply filters to the blog query.
+     *
+     * @param Builder $query
+     * @param array $input
+     * @return Builder
+     */
     public function __invoke(Builder $query, array $input): Builder
     {
         // Extract known filters
         $filters = Arr::only($input, ['name', 'slug', 'id']);
 
-        // Apply 'id' filter
+        // Apply filters iteratively
         if (!empty($filters['id'])) {
-            return $query->where('id', $filters['id'])->first();
+            $query->where('id', $filters['id']);
         }
 
-        // Apply 'name' filter
         if (!empty($filters['name'])) {
-            $query->where('name', 'like', '%' . $filters['name'] . '%')->first();
+            $query->where('name', 'like', '%' . $filters['name'] . '%');
         }
 
-        // Apply 'slug' filter
         if (!empty($filters['slug'])) {
-            $query->where('slug', $filters['slug'])->first();
+            $query->where('slug', $filters['slug']);
         }
 
-        // Return the query with remaining filters
+        // Return the builder instance for further processing
         return $query;
     }
 }
