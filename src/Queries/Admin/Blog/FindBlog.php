@@ -15,7 +15,7 @@ class FindBlog extends BaseFilter
      * @param array $input
      * @return Builder
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke(Builder $query, object $input): Builder
     {
         // Extract known filters
         $filters = Arr::only($input, ['name', 'slug', 'id']);
