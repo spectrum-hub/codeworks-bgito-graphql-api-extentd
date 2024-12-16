@@ -27,15 +27,16 @@ class FindBlog extends BaseFilter
             $query->where('id', $input['value']);
         }
 
-        if (!empty($input['name'])) {
-            $query->where('name', 'like', '%' . $input['name'] . '%');
+        if (!empty($input['key']) && $input['key'] === "name") {
+            $query->where('name', 'like', '%' . $input['value'] . '%');
         }
 
-        if (!empty($input['slug'])) {
-            $query->where('slug', $input['slug']);
+        if (!empty($input['key']) && $input['key'] === "slug") {
+            $query->where('slug', $input['value']);
         }
 
         // Return the builder instance for further processing
         return $query->limit(1); // Limits the query to one result
     }
 }
+
