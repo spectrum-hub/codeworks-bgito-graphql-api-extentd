@@ -21,16 +21,16 @@ class FindBlog extends BaseFilter
         $filters = Arr::only($input, ['name', 'slug', 'id']);
 
         // Apply filters iteratively
-        if (!empty($filters['id'])) {
-            $query->where('id', $filters['id']);
+        if (!empty($input['id'])) {
+            $query->where('id', $input['id']);
         }
 
-        if (!empty($filters['name'])) {
-            $query->where('name', 'like', '%' . $filters['name'] . '%');
+        if (!empty($input['name'])) {
+            $query->where('name', 'like', '%' . $input['name'] . '%');
         }
 
-        if (!empty($filters['slug'])) {
-            $query->where('slug', $filters['slug']);
+        if (!empty($input['slug'])) {
+            $query->where('slug', $input['slug']);
         }
 
         // Return the builder instance for further processing

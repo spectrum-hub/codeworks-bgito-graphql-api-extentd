@@ -14,7 +14,7 @@ extend type Query {
   ): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 
   blog(id: ID! @eq): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
-    
+
 }
 
 
