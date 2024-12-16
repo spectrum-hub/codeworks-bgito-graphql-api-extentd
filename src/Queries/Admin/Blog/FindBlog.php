@@ -15,14 +15,16 @@ class FindBlog extends BaseFilter
      * @param array $input
      * @return Builder
      */
-    public function __invoke(Builder $query, object $input): Builder
+    public function __invoke(Builder $query, $input): Builder
     {
         // Extract known filters
         $filters = Arr::only($input, ['name', 'slug', 'id']);
 
+        $input = (array) $input;
+
         // Apply filters iteratively
-        if (!empty($input->id)) {
-            $query->where('id', $input->id);
+        if (!empty($input['id'])) {
+            $query->where('id', $input['id']);
         }
 
         if (!empty($input['name'])) {
