@@ -10,25 +10,25 @@ class FindBlog extends BaseFilter
 {
     public function __invoke(Builder $query, array $input): Builder
     {
-        $params = Arr::except($input, ['page_title', 'url_key']);
-        
-        // Apply filters for name and description
-        if (!empty($input['name'])) {
-            $query->where('name', 'like', '%' . $input['name'] . '%')->first();
-        }
-    
-        // Explicitly handle 'slug' input for filtering
-        if (!empty($input['slug'])) {
-            $query->where('slug', $args['slug'])->first();
+        // Extract known filters
+        $filters = Arr::only($input, ['name', 'slug', 'id']);
+
+        // Apply 'id' filter
+        if (!empty($filters['id'])) {
+            return $query->where('id', $filters['id']);
         }
 
-        if (!empty($input['id'])) {
-            $query->findOrFail($input['id']);
+        // Apply 'name' filter
+        if (!empty($filters['name'])) {
+            $query->where('name', 'like', '%' . $filters['name'] . '%');
         }
- 
-    
-        // Apply other filters from the input
-        return $query->where($params);
+
+        // Apply 'slug' filter
+        if (!empty($filters['slug'])) {
+            $query->where('slug', $filters['slug']);
+        }
+
+        // Return the query with remaining filters
+        return $query;
     }
-    
 }
