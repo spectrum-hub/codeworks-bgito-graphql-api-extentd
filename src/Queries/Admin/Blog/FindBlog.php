@@ -12,31 +12,36 @@ class FindBlog extends BaseFilter
      * Apply filters to the blog query.
      *
      * @param Builder $query
-     * @param array $input
+     * @param array|object $input
      * @return Builder
      */
     public function __invoke(Builder $query, $input): Builder
     {
-        // Extract known filters
-        $filters = Arr::only($input, ['name', 'slug', 'id']);
-
+        // Ensure input is an array
         $input = (array) $input;
 
-        // Apply filters iteratively
-        if (!empty($input['key']) && $input['key'] === "id") {
-            $query->where('id', $input['value']);
+        // Apply the filter based on the key provided
+        if (!empty($input['key']) && !empty($input['value'])) {
+            switch ($input['key']) {
+                case 'id':
+                    $query->where('id', $input['value']);
+                    break;
+
+                case 'name':
+                    $query->where('name', 'like', '%' . $input['value'] . '%');
+                    break;
+
+                case 'slug':
+                    $query->where('slug', $input['value']);
+                    break;
+
+                default:
+                    // No action needed for unsupported keys
+                    break;
+            }
         }
 
-        if (!empty($input['key']) && $input['key'] === "name") {
-            $query->where('name', 'like', '%' . $input['value'] . '%');
-        }
-
-        if (!empty($input['key']) && $input['key'] === "slug") {
-            $query->where('slug', $input['value']);
-        }
-
-        // Return the builder instance for further processing
-        return $query->limit(1); // Limits the query to one result
+        // Limit the query to ensure only one result
+        return $query->limit(1);
     }
 }
-
