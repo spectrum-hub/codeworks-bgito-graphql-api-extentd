@@ -23,8 +23,8 @@ class FindBlog extends BaseFilter
         $input = (array) $input;
 
         // Apply filters iteratively
-        if (!empty($input['id'])) {
-            $query->where('id', $input['id']);
+        if (!empty($input['key']) && $input['key'] === "id") {
+            $query->where('id', $input['value']);
         }
 
         if (!empty($input['name'])) {
