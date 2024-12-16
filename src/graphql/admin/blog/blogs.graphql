@@ -1,74 +1,70 @@
 extend type Query {
-    blogs(
-        input: [FilterKeyValue]
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
-    ): [BlogType!] 
+  blogs(
+    input: [FilterKeyValue]
+      @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FilterBlogs")
+  ): [BlogType!]
     @paginate(
-        type: "PAGINATOR"
-        defaultCount: 100
-        model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
+      type: "PAGINATOR"
+      defaultCount: 100
+      model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
     )
 
-   blogDetail(
-        input: [FilterKeyValue]
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FindBlog")
-    ): BlogType
-    @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
-    
-    blog(id: ID! @eq): BlogType
+  blogDetail(
+    input: [FilterKeyValue]
+      @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Blog\\FindBlog")
+  ): BlogType @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
+
+  blog(id: ID! @eq): BlogType
     @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 }
-
- 
 
 input FilterKeyValue {
   key: String!
   value: String!
 }
 
-
 type BlogType {
-    id: ID!
-    name: String
-    slug: String
-    shortDescription: String @rename(attribute: "short_description")
-    description: String
-    author: String
-    authorId: ID @rename(attribute: "author_id")
-    channels: [Channel!] @belongsToMany(relation: "channels")
-    assignCategorys: [AssignCategoryType!] @rename(attribute: "assign_categorys")
-    srcUrl: String @rename(attribute: "src_url")
-    status: Boolean
-    allowComments: Boolean @rename(attribute: "allow_comments")
-    metaTitle: String @rename(attribute: "meta_title")
-    metaDescription: String @rename(attribute: "meta_description")
-    metaKeywords: String @rename(attribute: "meta_keywords")
-    publishedAt: DateTime @rename(attribute: "published_at")
-    createdAt: DateTime @rename(attribute: "created_at")
-    updatedAt: DateTime @rename(attribute: "updated_at")
+  id: ID!
+  name: String
+  slug: String
+  shortDescription: String @rename(attribute: "short_description")
+  description: String
+  author: String
+  authorId: ID @rename(attribute: "author_id")
+  channels: [Channel!] @belongsToMany(relation: "channels")
+  assignCategorys: [AssignCategoryType!] @rename(attribute: "assign_categorys")
+  srcUrl: String @rename(attribute: "src_url")
+  status: Boolean
+  allowComments: Boolean @rename(attribute: "allow_comments")
+  metaTitle: String @rename(attribute: "meta_title")
+  metaDescription: String @rename(attribute: "meta_description")
+  metaKeywords: String @rename(attribute: "meta_keywords")
+  publishedAt: DateTime @rename(attribute: "published_at")
+  createdAt: DateTime @rename(attribute: "created_at")
+  updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
 type AssignCategoryType {
-    id: ID!
-    name: String!
-    metaDescription: String @rename(attribute: "meta_description")
-    metaTitle: String @rename(attribute: "meta_title")
-    pageTitle: String @rename(attribute: "page_title")
-    metaKeywords: String @rename(attribute: "meta_keywords")
-    htmlContent: String @rename(attribute: "html_content")
-    locale: String!
-    slug: String!
-    description: String!
-    image: String!
-    status: String! 
-    parentId: Int! @rename(attribute: "parent_id")
-    createdAt: DateTime! @rename(attribute: "created_at")
-    updatedAt: DateTime! @rename(attribute: "updated_at")
-    imageUrl: String @rename(attribute: "image_url")
-    parentCategoryName: String @rename(attribute: "parent_category_name")
+  id: ID!
+  name: String!
+  metaDescription: String @rename(attribute: "meta_description")
+  metaTitle: String @rename(attribute: "meta_title")
+  pageTitle: String @rename(attribute: "page_title")
+  metaKeywords: String @rename(attribute: "meta_keywords")
+  htmlContent: String @rename(attribute: "html_content")
+  locale: String!
+  slug: String!
+  description: String!
+  image: String!
+  status: String!
+  parentId: Int! @rename(attribute: "parent_id")
+  createdAt: DateTime! @rename(attribute: "created_at")
+  updatedAt: DateTime! @rename(attribute: "updated_at")
+  imageUrl: String @rename(attribute: "image_url")
+  parentCategoryName: String @rename(attribute: "parent_category_name")
 }
 
 type Channel {
-    id: ID!
-    name: String!
+  id: ID!
+  name: String!
 }
