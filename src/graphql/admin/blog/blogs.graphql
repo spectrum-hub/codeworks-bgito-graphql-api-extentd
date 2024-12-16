@@ -9,7 +9,9 @@ extend type Query {
         model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog"
     )
 
-    blog(id: ID! @eq): BlogType 
+    # blog(id: ID! @eq): BlogType 
+    blog(id: ID, slug: String): BlogType
+
     @find(model: "Webkul\\GraphQLAPI\\Models\\Blog\\Blog")
 }
 
