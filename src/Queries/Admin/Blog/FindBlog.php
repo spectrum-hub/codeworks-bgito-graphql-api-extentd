@@ -15,17 +15,17 @@ class FindBlog extends BaseFilter
 
         // Apply 'id' filter
         if (!empty($filters['id'])) {
-            return $query->where('id', $filters['id']);
+            return $query->where('id', $filters['id'])->first();
         }
 
         // Apply 'name' filter
         if (!empty($filters['name'])) {
-            $query->where('name', 'like', '%' . $filters['name'] . '%');
+            $query->where('name', 'like', '%' . $filters['name'] . '%')->first();
         }
 
         // Apply 'slug' filter
         if (!empty($filters['slug'])) {
-            $query->where('slug', $filters['slug']);
+            $query->where('slug', $filters['slug'])->first();
         }
 
         // Return the query with remaining filters
