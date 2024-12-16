@@ -97,3 +97,7 @@ To install the Bagisto GraphQL API, follow these steps:
 ---
 
 That's it! Your Bagisto GraphQL API is now ready. Execute the project on your specified domain and start building your headless eCommerce solution.
+
+
+
+composer update codeworks/graphql-api-extend-bagisto dev-main
