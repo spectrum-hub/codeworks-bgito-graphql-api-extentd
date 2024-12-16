@@ -34,6 +34,6 @@ class FindBlog extends BaseFilter
         }
 
         // Return the builder instance for further processing
-        return $query;
+        return $query->limit(1); // Limits the query to one result
     }
 }
