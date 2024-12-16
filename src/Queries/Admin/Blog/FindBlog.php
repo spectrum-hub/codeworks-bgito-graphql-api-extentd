@@ -21,8 +21,8 @@ class FindBlog extends BaseFilter
         $filters = Arr::only($input, ['name', 'slug', 'id']);
 
         // Apply filters iteratively
-        if (!empty($input['id'])) {
-            $query->where('id', $input['id']);
+        if (!empty($input->id)) {
+            $query->where('id', $input->id);
         }
 
         if (!empty($input['name'])) {
