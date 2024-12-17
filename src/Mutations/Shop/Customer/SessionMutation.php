@@ -32,10 +32,10 @@ class SessionMutation extends Controller
      */
     public function login(mixed $rootValue, array $args, GraphQLContext $context)
     {
-        // bagisto_graphql()->validate($args, [
-        //     'email'    => 'required|email',
-        //     'password' => 'required',
-        // ]);
+        bagisto_graphql()->validate($args, [
+            'email'    => 'required|email',
+            'password' => 'required',
+        ]);
 
         // if (! $jwtToken = JWTAuth::attempt([
         //     'email'    => $args['email'],
