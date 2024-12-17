@@ -44,8 +44,7 @@ class SessionMutation extends Controller
         //     throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
         // }
 
-        $credentials = request(['email', 'password']);
-        $jwtToken = auth()->attempt($credentials);
+        $jwtToken = auth()->attempt($args);
         if (!$jwtToken) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
