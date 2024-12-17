@@ -98,36 +98,36 @@ class BagistoGraphql
 
         $user = auth()->guard($guard)->user();
 
-        if (
-            isset($user->status)
-            && $user->status !== 1
-        ) {
-            $message = trans('bagisto_graphql::app.shop.customers.login.not-activated');
-        }
+        // if (
+        //     isset($user->status)
+        //     && $user->status !== 1
+        // ) {
+        //     $message = trans('bagisto_graphql::app.shop.customers.login.not-activated');
+        // }
 
-        if (
-            isset($user->is_verified)
-            && $user->is_verified !== 1
-        ) {
-            $message = trans('bagisto_graphql::app.shop.customers.login.verify-first');
-        }
+        // if (
+        //     isset($user->is_verified)
+        //     && $user->is_verified !== 1
+        // ) {
+        //     $message = trans('bagisto_graphql::app.shop.customers.login.verify-first');
+        // }
 
-        if (
-            isset($user->is_suspended)
-            && $user->is_suspended !== 0
-        ) {
-            $message = trans('bagisto_graphql::app.shop.customers.login.suspended');
-        }
+        // if (
+        //     isset($user->is_suspended)
+        //     && $user->is_suspended !== 0
+        // ) {
+        //     $message = trans('bagisto_graphql::app.shop.customers.login.suspended');
+        // }
 
-        if (isset($message)) {
-            if ($token) {
-                request()->merge(['token' => $token]);
-            }
+        // if (isset($message)) {
+        //     if ($token) {
+        //         request()->merge(['token' => $token]);
+        //     }
 
-            auth()->guard($guard)->logout();
+        //     auth()->guard($guard)->logout();
 
-            throw new CustomException($message);
-        }
+        //     throw new CustomException($message);
+        // }
 
         return $user;
     }
