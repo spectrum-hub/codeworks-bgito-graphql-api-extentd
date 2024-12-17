@@ -9,6 +9,7 @@ use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use Webkul\GraphQLAPI\Validators\CustomException;
 
+
 class SessionMutation extends Controller
 {
     /**
@@ -30,31 +31,25 @@ class SessionMutation extends Controller
      */
     public function login(mixed $rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'email'    => 'required|email',
-            'password' => 'required',
-        ]);
+        // bagisto_graphql()->validate($args, [
+        //     'email'    => 'required|email',
+        //     'password' => 'required',
+        // ]);
 
-        $jwtToken = JWTAuth::attempt(['email'    => $args['email'], 'password' => $args['password'],], $args['remember'] ?? 0);
+        if (! $jwtToken = JWTAuth::attempt([
+            'email'    => $args['email'],
+            'password' => $args['password'],
+        ], $args['remember'] ?? 0)) {
+            throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
+        }
 
-        // {
-        //     // throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
+        // $credentials = request(['email', 'password']);
 
-            
-        //     return [
-        //         'success'      => true,
-        //         'message'      => trans('bagisto_graphql::app.shop.customers.success-login'),
-        //         'access_token' => "Bearer $jwtToken",
-        //         'token_type'   => 'Bearer',
-        //         'expires_in'   => Auth::factory()->getTTL() * 60,
-        //         'args'     => $args,
-        //     ];
+        // if (! $jwtToken = auth()->attempt($credentials)) {
+        //     return response()->json(['error' => 'Unauthorized'], 401);
         // }
 
-        // if (! $customer->status) {
-        //     throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.account-suspended'));
-        // }
-
+        
         try {
             $customer = bagisto_graphql()->authorize(token: $jwtToken);
 
