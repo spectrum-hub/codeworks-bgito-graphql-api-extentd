@@ -35,22 +35,22 @@ class SessionMutation extends Controller
             'password' => 'required',
         ]);
 
-        if (! $jwtToken = JWTAuth::attempt([
-            'email'    => $args['email'],
-            'password' => $args['password'],
-        ], $args['remember'] ?? 0)) {
-            // throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
+        // if (! $jwtToken = JWTAuth::attempt([
+        //     'email'    => $args['email'],
+        //     'password' => $args['password'],
+        // ], $args['remember'] ?? 0)) {
+        //     // throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
 
             
-            return [
-                'success'      => true,
-                'message'      => trans('bagisto_graphql::app.shop.customers.success-login'),
-                'access_token' => "Bearer $jwtToken",
-                'token_type'   => 'Bearer',
-                'expires_in'   => Auth::factory()->getTTL() * 60,
-                'args'     => $args,
-            ];
-        }
+        //     return [
+        //         'success'      => true,
+        //         'message'      => trans('bagisto_graphql::app.shop.customers.success-login'),
+        //         'access_token' => "Bearer $jwtToken",
+        //         'token_type'   => 'Bearer',
+        //         'expires_in'   => Auth::factory()->getTTL() * 60,
+        //         'args'     => $args,
+        //     ];
+        // }
 
         // if (! $customer->status) {
         //     throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.account-suspended'));
