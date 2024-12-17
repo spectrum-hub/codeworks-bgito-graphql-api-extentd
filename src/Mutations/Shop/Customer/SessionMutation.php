@@ -35,10 +35,9 @@ class SessionMutation extends Controller
             'password' => 'required',
         ]);
 
-        // if (! $jwtToken = JWTAuth::attempt([
-        //     'email'    => $args['email'],
-        //     'password' => $args['password'],
-        // ], $args['remember'] ?? 0)) {
+        $jwtToken = JWTAuth::attempt(['email'    => $args['email'], 'password' => $args['password'],], $args['remember'] ?? 0);
+
+        // {
         //     // throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
 
             
