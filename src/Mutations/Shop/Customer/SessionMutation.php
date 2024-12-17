@@ -20,6 +20,7 @@ class SessionMutation extends Controller
     public function __construct()
     {
         Auth::setDefaultDriver('api');
+        $this->middleware('auth:api', ['except' => ['login']]);
     }
 
     /**
@@ -36,18 +37,18 @@ class SessionMutation extends Controller
         //     'password' => 'required',
         // ]);
 
-        if (! $jwtToken = JWTAuth::attempt([
-            'email'    => $args['email'],
-            'password' => $args['password'],
-        ], $args['remember'] ?? 0)) {
-            throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
-        }
-
-        // $credentials = request(['email', 'password']);
-
-        // if (! $jwtToken = auth()->attempt($credentials)) {
-        //     return response()->json(['error' => 'Unauthorized'], 401);
+        // if (! $jwtToken = JWTAuth::attempt([
+        //     'email'    => $args['email'],
+        //     'password' => $args['password'],
+        // ], $args['remember'] ?? 0)) {
+        //     throw new CustomException(trans('bagisto_graphql::app.shop.customers.login.invalid-creds'));
         // }
+
+        $credentials = request(['email', 'password']);
+        $jwtToken = auth()->attempt($credentials);
+        if (!$jwtToken) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
 
         
         try {
