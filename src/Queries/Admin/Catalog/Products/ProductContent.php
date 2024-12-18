@@ -2,49 +2,90 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Catalog\Products;
 
+use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 use Webkul\Customer\Repositories\WishlistRepository;
-use Webkul\GraphQLAPI\Queries\BaseFilter;
 use Webkul\Product\Helpers\ConfigurableOption as ProductConfigurableHelper;
-use Webkul\Product\Helpers\Review as ProductReviewHelper;
 use Webkul\Product\Helpers\View as ProductViewHelper;
+use Webkul\Product\Helpers\Review;
 use Webkul\Product\Repositories\ProductRepository;
+use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class ProductContent extends BaseFilter
 {
     /**
+     * Contains current guard
+     *
+     * @var array
+     */
+    protected $guard;
+
+    /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Product\Repositories\ProductRepository  $productRepository
+     * @param  \Webkul\Customer\Repositories\WishlistRepository  $wishlistRepository
+     * @param  \Webkul\Product\Helpers\View  $productViewHelper
+     * @param  \Webkul\Product\Helpers\Review  $review
+     * @param  \Webkul\Product\Helpers\ConfigurableOption  $productConfigurableHelper
      * @return void
      */
     public function __construct(
+        protected ProductRepository $productRepository,
         protected WishlistRepository $wishlistRepository,
         protected ProductViewHelper $productViewHelper,
-        protected ProductReviewHelper $productReviewHelper,
+        protected Review $review,
         protected ProductConfigurableHelper $productConfigurableHelper
-    ) {}
+    ) {
+        $this->guard = 'api';
+    }
 
     /**
-     * Get product details.
+     * Get additional data.
      *
-     * @return array
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
+     * @return mixed
      */
-    public function getAdditionalData($product)
+    public function getAdditionalData($rootValue, array $args, GraphQLContext $context)
     {
-        return $this->productViewHelper->getAdditionalData($product);
+        return $this->productViewHelper->getAdditionalData($rootValue);
+    }
+
+    /**
+     * Get related products.
+     *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
+     * @return mixed
+     */
+    public function getRelatedProducts($rootValue, array $args, GraphQLContext $context)
+    {
+        $product = $this->productRepository->find($args['productId']);
+
+        if ($product) {
+            return $product->related_products()->whereIn('products.type', ['simple', 'virtual', 'configurable'])->get();
+        }
+
+        return null;
     }
 
     /**
      * Get product price html.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return array
      */
-    public function getProductPriceHtml($product)
+    public function getProductPriceHtml($rootValue, array $args, GraphQLContext $context)
     {
-        $productType = $product->getTypeInstance();
+        $productType = $rootValue->getTypeInstance();
 
         $priceArray = [
-            'id'                         => $product->id,
-            'type'                       => $product->type,
+            'id'                         => $rootValue->id,
+            'type'                       => $rootValue->type,
             'priceHtml'                  => $productType->getPriceHtml(),
             'priceWithoutHtml'           => strip_tags($productType->getPriceHtml()),
             'minPrice'                   => core()->formatPrice($productType->getMinimalPrice()),
@@ -57,7 +98,7 @@ class ProductContent extends BaseFilter
 
         $regularPrice = $productType->getProductPrices();
 
-        switch ($product->type) {
+        switch ($rootValue->type) {
             case 'simple':
             case 'virtual':
             case 'downloadable':
@@ -124,11 +165,14 @@ class ProductContent extends BaseFilter
     /**
      * Get bundle type product price.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return array
      */
-    public function getBundleProductPrice($data)
+    public function getBundleProductPrice($rootValue, array $args, GraphQLContext $context)
     {
-        $product = app(ProductRepository::class)->find($data['id']);
+        $product = $this->productRepository->find($rootValue['id']);
 
         $priceArray = [
             'finalPriceFrom'            => '',
@@ -158,28 +202,42 @@ class ProductContent extends BaseFilter
     }
 
     /**
-     * Check product is in wishlist.
+     * Check wishlist
+     *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
+     * @return bool
      */
-    public function checkIsInWishlist($product): bool
+    public function checkIsInWishlist($rootValue, array $args, GraphQLContext $context)
     {
-        if (! auth()->guard('api')->check()) {
-            return false;
+        if (bagisto_graphql()->guard($this->guard)->check() ) {
+            $customer = bagisto_graphql()->guard($this->guard)->user();
+
+            $wishlist = $this->wishlistRepository->findOneWhere([
+                'customer_id'   => $customer->id,
+                'product_id'    => $rootValue->id
+            ]);
+
+            if ($wishlist) {
+                return true;
+            }
         }
 
-        return (bool) $this->wishlistRepository->where([
-            'customer_id' => auth()->guard('api')->user()->id,
-            'product_id'  => $product->id,
-        ])->count();
+        return false;
     }
 
     /**
      * Check product is in sale
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return bool
      */
-    public function checkIsInSale($product)
+    public function checkIsInSale($rootValue, array $args, GraphQLContext $context)
     {
-        $productTypeInstance = $product->getTypeInstance();
+        $productTypeInstance = $rootValue->getTypeInstance();
 
         if ($productTypeInstance->haveDiscount()) {
             return true;
@@ -188,25 +246,25 @@ class ProductContent extends BaseFilter
         return false;
     }
 
-    /**
-     * Check product is in stock
-     */
-    public function checkIsSaleable($product): bool
+    public function checkIsSaleable($rootValue, array $args, GraphQLContext $context): bool
     {
-        return $product->getTypeInstance()->isSaleable();
+        return $rootValue->getTypeInstance()
+            ->isSaleable();
     }
 
     /**
      * Get configurable data.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return mixed
      */
-    public function getConfigurableData($product)
+    public function getConfigurableData($rootValue, array $args, GraphQLContext $context)
     {
-        $data = $this->productConfigurableHelper->getConfigurationConfig($product);
+        $data = $this->productConfigurableHelper->getConfigurationConfig($this->productRepository->find($rootValue->id));
 
         $index = [];
-
         foreach ($data['index'] as $key => $attributeOptionsIds) {
             if (! isset($index[$key])) {
                 $index[$key] = [
@@ -234,23 +292,19 @@ class ProductContent extends BaseFilter
                 }
             }
         }
-
         $data['index'] = $index;
 
         $variantPrices = [];
-
         foreach ($data['variant_prices'] as $key => $prices) {
             $variantPrices[$key] = [
                 'id'            => $key,
-                'regular'       => $prices['regular'],
-                'final'         => $prices['final'],
+                'regular' => $prices['regular'],
+                'final'   => $prices['final'],
             ];
         }
-
         $data['variant_prices'] = $variantPrices;
 
         $variantImages = [];
-
         foreach ($data['variant_images'] as $key => $imgs) {
             $variantImages[$key] = [
                 'id'     => $key,
@@ -261,11 +315,9 @@ class ProductContent extends BaseFilter
                 $variantImages[$key]['images'][$img_index] = $urls;
             }
         }
-
         $data['variant_images'] = $variantImages;
 
         $variantVideos = [];
-
         foreach ($data['variant_videos'] as $key => $imgs) {
             $variantVideos[$key] = [
                 'id'     => $key,
@@ -276,7 +328,6 @@ class ProductContent extends BaseFilter
                 $variantVideos[$key]['videos'][$img_index] = $urls;
             }
         }
-
         $data['variant_videos'] = $variantVideos;
 
         return $data;
@@ -285,62 +336,86 @@ class ProductContent extends BaseFilter
     /**
      * Get cached gallery images.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return mixed
      */
-    public function getCacheGalleryImages($product)
+    public function getCacheGalleryImages($rootValue, array $args, GraphQLContext $context)
     {
-        return product_image()->getGalleryImages($product);
+        return product_image()->getGalleryImages($rootValue);
     }
 
     /**
      * Get product's review list.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return mixed
      */
-    public function getReviews($product)
+    public function getReviews($rootValue, array $args, GraphQLContext $context)
     {
-        return $product->reviews->where('status', 'approved');
+        $product = $this->productRepository->find($rootValue->id);
+
+        if ($product) {
+            return $product->reviews->where('status', 'approved');
+        }
+
+        return [];
     }
 
     /**
      * Get product base image.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return mixed
      */
-    public function getProductBaseImage($product)
+    public function getProductBaseImage($rootValue, array $args, GraphQLContext $context)
     {
         themes()->set('default');
 
-        return product_image()->getProductBaseImage($product);
+        return product_image()->getProductBaseImage($rootValue);
     }
 
     /**
      * Get product avarage rating.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return string
      */
-    public function getAverageRating($product)
+    public function getAverageRating($rootValue, array $args, GraphQLContext $context)
     {
-        return $this->productReviewHelper->getAverageRating($product);
+        return $this->review->getAverageRating($rootValue);
     }
 
     /**
      * Get product percentage rating.
      *
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
      * @return array
      */
-    public function getPercentageRating($product)
+    public function getPercentageRating($rootValue, array $args, GraphQLContext $context)
     {
-        return $this->productReviewHelper->getPercentageRating($product);
+        return $this->review->getPercentageRating($rootValue);
     }
 
     /**
      * Get product share URL.
      *
-     * @return string|null
+     * @param  mixed  $rootValue
+     * @param  array  $args
+     * @param  GraphQLContext  $context
+     * @return mixed
      */
-    public function getProductShareUrl($product)
+    public function getProductShareUrl($rootValue, array $args, GraphQLContext $context)
     {
-        return route('shop.product_or_category.index', $product->url_key);
+        return route('shop.product_or_category.index', $rootValue->url_key);
     }
 }

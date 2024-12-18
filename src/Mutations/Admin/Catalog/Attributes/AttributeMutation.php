@@ -2,20 +2,22 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Catalog\Attributes;
 
+use Exception;
+use Webkul\Core\Rules\Code;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Validator;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
-use Webkul\Attribute\Repositories\AttributeOptionRepository;
 use Webkul\Attribute\Repositories\AttributeRepository;
-use Webkul\Core\Rules\Code;
-use Webkul\GraphQLAPI\Validators\CustomException;
+use Webkul\Attribute\Repositories\AttributeOptionRepository;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class AttributeMutation extends Controller
 {
     /**
      * localeFields array
      *
-     * @var array
+     * @var Array
      */
     protected $localeFields = [
         'name',
@@ -24,57 +26,68 @@ class AttributeMutation extends Controller
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Attribute\Repositories\AttributeRepository  $attributeRepository
+     * @param  \Webkul\Attribute\Repositories\AttributeOptionRepository  $attributeOptionRepository
      * @return void
      */
     public function __construct(
         protected AttributeRepository $attributeRepository,
         protected AttributeOptionRepository $attributeOptionRepository
-    ) {}
+    ) {
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
+        if (empty($args['input'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
             'code'       => ['required', 'unique:attributes,code', new Code],
             'admin_name' => 'required',
             'type'       => 'required',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
         try {
             if (
-                isset($args['translations'])
-                && is_array($args['translations'])
+                isset($data['translations'])
+                && is_array($data['translations'])
             ) {
-                $localeFields = bagisto_graphql()->manageLocaleFields($args['translations'], $this->localeFields);
+                $localeFields = bagisto_graphql()->manageLocaleFields($data['translations'], $this->localeFields);
 
-                $args = array_merge($args, $localeFields);
+                $data = array_merge($data, $localeFields);
 
-                unset($args['translations']);
+                unset($data['translations']);
             }
 
-            $swatch_type = $args['swatch_type'] ?? '';
+            $swatch_type = $data['swatch_type'] ?? '';
 
             $swatch_value = [];
 
-            if (! empty($args['options'])) {
-                $options = $this->manageAttributeOptions($args);
+            if (! empty($data['options'])) {
+                $options = $this->manageAttribnuteOptions($data);
 
-                $args['options'] = $options['options'] ?? [];
+                $data['options'] = $options['options'] ?? [];
 
                 $swatch_value = $options['swatch_value'] ?? [];
             }
 
-            $args['is_user_defined'] = 1;
+            $data['is_user_defined'] = 1;
 
             Event::dispatch('catalog.attribute.create.before');
 
-            $attribute = $this->attributeRepository->create($args);
+            $attribute = $this->attributeRepository->create($data);
 
             if (
                 isset($attribute->id)
@@ -93,12 +106,8 @@ class AttributeMutation extends Controller
 
             Event::dispatch('catalog.attribute.create.after', $attribute);
 
-            return [
-                'success'   => true,
-                'message'   => trans('bagisto_graphql::app.admin.catalog.attributes.create-success'),
-                'attribute' => $attribute,
-            ];
-        } catch (\Exception $e) {
+            return $attribute;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -106,51 +115,60 @@ class AttributeMutation extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        $attribute = $this->attributeRepository->find($args['id']);
-
-        if (! $attribute) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.catalog.attributes.not-found'));
+        if (
+            empty($args['id'])
+            || empty($args['input'])
+        ) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
         }
 
-        bagisto_graphql()->validate($args, [
-            'code'       => ['required', 'unique:attributes,code,'.$args['id'], new Code],
+        $data = $args['input'];
+        $id = $args['id'];
+
+        $validator = Validator::make($data, [
+            'code'       => ['required', 'unique:attributes,code,'.$id, new Code],
             'admin_name' => 'required',
             'type'       => 'required',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
         try {
             if (
-                isset($args['translations'])
-                && is_array($args['translations'])
+                isset($data['translations'])
+                && is_array($data['translations'])
             ) {
-                $localeFields = bagisto_graphql()->manageLocaleFields($args['translations'], $this->localeFields);
+                $localeFields = bagisto_graphql()->manageLocaleFields($data['translations'], $this->localeFields);
 
-                $args = array_merge($args, $localeFields);
+                $data = array_merge($data, $localeFields);
 
-                unset($args['translations']);
+                unset($data['translations']);
             }
 
-            $swatch_type = $args['swatch_type'] ?? '';
+            $swatch_type = $data['swatch_type'] ?? '';
 
             $swatch_value = [];
 
-            if (! empty($args['options'])) {
-                $options = $this->manageAttributeOptions($args);
+            if (! empty($data['options'])) {
+                $options = $this->manageAttribnuteOptions($data);
 
-                $args['options'] = $options['options'] ?? [];
+                $data['options'] = $options['options'] ?? [];
 
                 $swatch_value = $options['swatch_value'] ?? [];
             }
 
-            Event::dispatch('catalog.attribute.update.before', $args['id']);
+            $data['is_user_defined'] = 1;
 
-            $attribute = $this->attributeRepository->update($args, $args['id']);
+            Event::dispatch('catalog.attribute.update.before', $id);
+
+            $attribute = $this->attributeRepository->update($data, $id);
 
             if (
                 isset($attribute->id)
@@ -169,12 +187,8 @@ class AttributeMutation extends Controller
 
             Event::dispatch('catalog.attribute.update.after', $attribute);
 
-            return [
-                'success'   => true,
-                'message'   => trans('bagisto_graphql::app.admin.catalog.attributes.update-success'),
-                'attribute' => $attribute,
-            ];
-        } catch (\Exception $e) {
+            return $attribute;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -182,34 +196,34 @@ class AttributeMutation extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $attribute = $this->attributeRepository->find($args['id']);
-
-        if (! $attribute) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.catalog.attributes.not-found'));
+        if (
+            empty($args['id'])
+        ) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
         }
+
+        $id = $args['id'];
+
+        $attribute = $this->attributeRepository->findOrFail($id);
 
         if (! $attribute->is_user_defined) {
             throw new CustomException(trans('bagisto_graphql::app.admin.catalog.attributes.user-define-error'));
         }
 
         try {
-            Event::dispatch('catalog.attribute.delete.before', $args['id']);
+            Event::dispatch('catalog.attribute.delete.before', $id);
 
-            $attribute->delete();
+            $this->attributeRepository->delete($id);
 
-            Event::dispatch('catalog.attribute.delete.after', $args['id']);
+            Event::dispatch('catalog.attribute.delete.after', $id);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.catalog.attributes.delete-success'),
-            ];
-        } catch (\Exception $e) {
+            return ['success' => trans('bagisto_graphql::app.admin.catalog.attributes.delete-success')];
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -220,7 +234,7 @@ class AttributeMutation extends Controller
      * @param  array  $data
      * @return array
      */
-    public function manageAttributeOptions($data)
+    public function manageAttribnuteOptions($data)
     {
         $response = [];
         $options = [];
@@ -228,21 +242,21 @@ class AttributeMutation extends Controller
         foreach ($data['options'] as $index => $option) {
             if (
                 empty($option['admin_name'])
-                || ! is_array($option['translations'])
+                || !  is_array($option['translations'])
             ) {
                 continue;
             }
 
-            $key = strtolower(str_replace(' ', '_', $option['admin_name']));
+            $key = strtolower(str_replace(" ", "_", $option['admin_name']));
 
-            if ($attributeOption = $this->attributeOptionRepository->findOneByField('admin_name', $option['admin_name'])) {
+            if ($attributeOption = $this->attributeOptionRepository->where('admin_name', $option['admin_name'])->first()) {
                 $key = $attributeOption->id;
             }
 
             $options[$key] = [
                 'admin_name' => $option['admin_name'],
                 'sort_order' => $option['sort_order'] ?? ($index + 1),
-                'isNew'      => $option['isNew'] ?? false,
+                'isNew'      => $option["isNew"] ?? false,
                 'isDelete'   => $option['isDelete'] ?? false,
             ];
 

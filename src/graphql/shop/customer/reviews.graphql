@@ -1,28 +1,22 @@
 #Shop\Customer\Reviews Related APIs
 extend type Query {
     reviewsList(
-        input: FilterReviewInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\ReviewQuery")
-    ): [Review!] @paginate(
-        type: "PAGINATOR"
-        model: "Webkul\\Product\\Models\\ProductReview"
-        defaultCount: 10
-    )
+        input: CustomerReviewInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\ReviewQuery@getReviews"),
+        first: Int,
+        page: Int
+    ): [Review!] @paginate(type: "PAGINATOR" defaultCount:10 model:"Webkul\\Product\\Models\\ProductReview")
 
-    reviewDetail(
-        id: ID @eq
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\ReviewQuery@getDetails")
-    ): Review @find(model: "Webkul\\Product\\Models\\ProductReview")
+    reviewDetail(id: ID @eq): Review @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\ReviewMutation@reviews")
 }
 
 extend type Mutation {
     createReview(
-        input: CreateReviewInput! @spread
+        input: CreateReviewInput!
     ): CreateReviewResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\ReviewMutation@store")
 
     deleteReview(id: ID!): DeleteReviewResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\ReviewMutation@delete")
 
-    deleteAllReview: StatusResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\ReviewMutation@deleteAll")
+    deleteAllReview: DeleteReviewResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\ReviewMutation@deleteAll")
 }
 
 input CreateReviewInput {
@@ -40,13 +34,14 @@ input Attachments {
 }
 
 type CreateReviewResponse {
-    success: Boolean
-    message: String
+    success: String
     review: Review
 }
 
-input FilterReviewInput {
+input CustomerReviewInput {
     id: Int
+    sort: String
+    order: String
     title: String
     rating: Int
     customerName: String @rename(attribute: "customer_name")
@@ -56,7 +51,7 @@ input FilterReviewInput {
 }
 
 type DeleteReviewResponse {
-    success: Boolean
+    status: Boolean
     message: String
     reviews: [Review]
 }

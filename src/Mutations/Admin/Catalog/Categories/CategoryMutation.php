@@ -2,19 +2,21 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Catalog\Categories;
 
-use App\Http\Controllers\Controller;
+use Exception;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Event;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use App\Http\Controllers\Controller;
 use Webkul\Category\Repositories\CategoryRepository;
 use Webkul\Core\Rules\Slug;
-use Webkul\GraphQLAPI\Validators\CustomException;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class CategoryMutation extends Controller
 {
     /**
      * localeFields array
      *
-     * @var array
+     * @var Array
      */
     protected $localeFields = [
         'name',
@@ -28,63 +30,66 @@ class CategoryMutation extends Controller
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Category\Repositories\CategoryRepository  $categoryRepository
      * @return void
      */
-    public function __construct(protected CategoryRepository $categoryRepository) {}
+    public function __construct(protected CategoryRepository $categoryRepository)
+    {
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'slug'          => ['required', 'unique:category_translations,slug', new Slug],
-            'name'          => 'required',
-            'description'   => 'required_if:display_mode,==,description_only,products_and_description',
-            'position'      => 'required',
-            'logo_path'     => 'array',
-            'banner_path'   => 'array',
-            'attributes'    => 'required|array',
-            'attributes.*'  => 'required',
+        if (empty($args['input'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
+            'slug'        => ['required', 'unique:category_translations,slug', new Slug],
+            'name'        => 'required',
+            'image.*'     => 'mimes:jpeg,jpg,bmp,png',
+            'description' => 'required_if:display_mode,==,description_only,products_and_description',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
         try {
-            $imageUrl = '';
+            $image_url = '';
 
-            if (! empty($args['logo_path'])) {
-                $imageUrl = current($args['logo_path']);
+            if (! empty($data['logo_path'])) {
+                $image_url = current($data['logo_path']);
 
-                unset($args['logo_path']);
+                unset($data['logo_path']);
             }
 
-            $bannerPath = '';
+            $banner_path = '';
 
-            if (! empty($args['banner_path'])) {
-                $bannerPath = current($args['banner_path']);
+            if (! empty($data['banner_path'])) {
+                $banner_path = current($data['banner_path']);
 
-                unset($args['banner_path']);
+                unset($data['banner_path']);
             }
 
-            Event::dispatch('catalog.category.create.before');
-
-            $category = $this->categoryRepository->create($args);
+            $category = $this->categoryRepository->create($data);
 
             Event::dispatch('catalog.category.create.after', $category);
 
-            bagisto_graphql()->uploadImage($category, $imageUrl, 'category/', 'logo_path');
+            if (isset($category->id)) {
+                bagisto_graphql()->uploadImage($category, $image_url, 'category/', 'logo_path');
 
-            bagisto_graphql()->uploadImage($category, $bannerPath, 'category/', 'banner_path');
+                bagisto_graphql()->uploadImage($category, $banner_path, 'category/', 'banner_path');
 
-            return [
-                'success'  => true,
-                'message'  => trans('bagisto_graphql::app.admin.catalog.categories.create-success'),
-                'category' => $category,
-            ];
-        } catch (\Exception $e) {
+                return $category;
+            }
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -92,81 +97,76 @@ class CategoryMutation extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'position'      => 'required',
-            'logo_path'     => 'array',
-            'banner_path'   => 'array',
-            'attributes'    => 'required|array',
-            'attributes.*'  => 'required',
-        ]);
-
-        $category = $this->categoryRepository->find($args['id']);
-
-        if (! $category) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.catalog.categories.not-found'));
+        if (
+            empty($args['id'])
+            || empty($args['input'])
+        ) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
         }
 
-        $locale = $args['locale'] ?? app()->getLocale();
+        $data = $args['input'];
 
-        $args[$locale] = [];
+        $id = $args['id'];
+
+        $locale = (isset($data['locale']) && $data['locale'] != 'all') ? $data['locale'] : app()->getLocale();
+
+        $data[$locale] = [];
 
         foreach ($this->localeFields as $field) {
-            if (isset($args[$field])) {
-                $args[$locale][$field] = $args[$field];
+            if (isset($data[$field])) {
+                $data[$locale][$field] = $data[$field];
 
-                unset($args[$field]);
+                unset($data[$field]);
             }
         }
 
-        bagisto_graphql()->validate($args, [
-            $locale.'.slug' => ['required', new Slug, function ($value, $fail) use ($args) {
-                if (! $this->categoryRepository->isSlugUnique($args['id'], $value)) {
+        $validator = Validator::make($data, [
+            $locale.'.slug' => ['required', new Slug, function ($value, $fail) use ($id) {
+                if (! $this->categoryRepository->isSlugUnique($id, $value)) {
                     $fail(trans('bagisto_graphql::app.admin.catalog.categories.already-taken'));
                 }
             }],
-            $locale.'.name'        => 'required',
-            $locale.'.description' => 'required_if:display_mode,==,description_only,products_and_description',
-            'image.*'              => 'mimes:jpeg,jpg,bmp,png',
-            'parent_id'            => 'required|exists:categories,id',
+            $locale.'.name' => 'required',
+            'image.*'       => 'mimes:jpeg,jpg,bmp,png',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
         try {
-            $imageUrl = '';
+            $image_url = '';
 
-            if (! empty($args['logo_path'])) {
-                $imageUrl = current($args['logo_path']);
+            if (! empty($data['logo_path'])) {
+                $image_url =  current($data['logo_path']);
 
-                unset($args['logo_path']);
+                unset($data['logo_path']);
             }
 
-            $bannerPath = '';
+            $banner_path = '';
 
-            if (! empty($args['banner_path'])) {
-                $bannerPath = current($args['banner_path']);
+            if (! empty($data['banner_path'])) {
+                $banner_path = current($data['banner_path']);
 
-                unset($args['banner_path']);
+                unset($data['banner_path']);
             }
 
-            $category = $this->categoryRepository->update($args, $category->id);
+            $category = $this->categoryRepository->update($data, $id);
 
             Event::dispatch('catalog.category.update.after', $category);
 
-            bagisto_graphql()->uploadImage($category, $imageUrl, 'category/', 'logo_path');
+            if (! empty($category->id)) {
+                bagisto_graphql()->uploadImage($category, $image_url, 'category/', 'logo_path');
 
-            bagisto_graphql()->uploadImage($category, $bannerPath, 'category/', 'banner_path');
+                bagisto_graphql()->uploadImage($category, $banner_path, 'category/', 'banner_path');
 
-            return [
-                'success'  => true,
-                'message'  => trans('bagisto_graphql::app.admin.catalog.categories.update-success'),
-                'category' => $category,
-            ];
-        } catch (\Exception $e) {
+                return $category;
+            }
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -174,34 +174,31 @@ class CategoryMutation extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $category = $this->categoryRepository->find($args['id']);
-
-        if (! $category) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.catalog.categories.not-found'));
+        if (empty($args['id'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
         }
 
-        if (strtolower($category->name) == 'root') {
-            throw new CustomException(trans('bagisto_graphql::app.admin.catalog.categories.root-delete'));
+        $id = $args['id'];
+
+        $category = $this->categoryRepository->findOrFail($id);
+
+        if (strtolower($category->name) == "root") {
+            throw new CustomException(trans('bagisto_graphql::app.admin.catalog.categories.delete-category-root'));
         }
 
         try {
-            Event::dispatch('catalog.category.delete.before', $args['id']);
+            Event::dispatch('catalog.category.delete.before', $id);
 
-            $category->delete();
+            $this->categoryRepository->delete($id);
 
-            Event::dispatch('catalog.category.delete.after', $args['id']);
+            Event::dispatch('catalog.category.delete.after', $id);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.catalog.categories.delete-success'),
-            ];
-        } catch (\Exception $e) {
+            return ['success' => trans('bagisto_graphql::app.admin.catalog.categories.delete-success')];
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }

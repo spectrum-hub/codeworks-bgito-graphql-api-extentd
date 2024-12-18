@@ -2,36 +2,44 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Sales\Invoices;
 
+use Exception;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 use Webkul\Admin\Http\Controllers\Controller;
-use Webkul\GraphQLAPI\Validators\CustomException;
-use Webkul\Sales\Repositories\InvoiceRepository;
 use Webkul\Sales\Repositories\OrderRepository;
-use Webkul\Sales\Repositories\OrderTransactionRepository;
+use Webkul\Sales\Repositories\InvoiceRepository;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class InvoiceMutation extends Controller
 {
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Sales\Repositories\OrderRepository  $orderRepository
+     * @param  \Webkul\Sales\Repositories\InvoiceRepository  $invoiceRepository
      * @return void
      */
     public function __construct(
         protected OrderRepository $orderRepository,
-        protected InvoiceRepository $invoiceRepository,
-        protected OrderTransactionRepository $orderTransactionRepository,
-    ) {}
+        protected InvoiceRepository $invoiceRepository
+    ) {
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        $order = $this->orderRepository->find($args['order_id']);
+        if (empty($args['input'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $params = $args['input'];
+
+        $orderId = $params['order_id'];
+
+        $order = $this->orderRepository->find($orderId);
 
         if (! $order) {
             throw new CustomException(trans('bagisto_graphql::app.admin.sales.orders.not-found'));
@@ -42,15 +50,15 @@ class InvoiceMutation extends Controller
         }
 
         try {
-            if (empty($args['invoice_data'])) {
+            if (empty($params['invoice_data'])) {
                 throw new CustomException(trans('bagisto_graphql::app.admin.sales.invoices.product-error'));
             }
 
             $invoiceData = [];
 
-            foreach ($args['invoice_data'] as $arg) {
+            foreach ($params['invoice_data'] as $data) {
                 $invoiceData = $invoiceData + [
-                    $arg['order_item_id'] => $arg['quantity'],
+                    $data['order_item_id'] => $data['quantity'],
                 ];
             }
 
@@ -70,41 +78,11 @@ class InvoiceMutation extends Controller
                 throw new CustomException(trans('bagisto_graphql::app.admin.sales.invoices.product-error'));
             }
 
-            $invoice = $this->invoiceRepository->create(array_merge($invoice, [
-                'order_id' => $args['order_id'],
-            ]));
+            $invoicedData = $this->invoiceRepository->create(array_merge($invoice, ['order_id' => $orderId]));
 
-            if ($args['can_create_transaction']) {
-                $this->createTransaction($invoice);
-            }
-
-            return [
-                'success'  => true,
-                'message'  => trans('bagisto_graphql::app.admin.sales.invoices.create-success'),
-                'invoice'  => $invoice,
-            ];
-        } catch (\Exception $e) {
+            return $invoicedData;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
-    }
-
-    /**
-     * Create transaction for the invoice.
-     */
-    private function createTransaction(object $invoice): void
-    {
-        $transactionId = md5(uniqid());
-
-        $transactionData = [
-            'transaction_id' => $transactionId,
-            'status'         => $invoice->state,
-            'type'           => $invoice->order->payment->method,
-            'payment_method' => $invoice->order->payment->method,
-            'order_id'       => $invoice->order->id,
-            'invoice_id'     => $invoice->id,
-            'amount'         => $invoice->grand_total,
-        ];
-
-        $this->orderTransactionRepository->create($transactionData);
     }
 }

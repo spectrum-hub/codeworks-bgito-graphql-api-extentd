@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 return [
     /*
@@ -14,6 +12,7 @@ return [
     | You can add multiple routes pointing to different GraphQL endpoints.
     |
     */
+
     'routes' => [
         '/graphiql' => [
             'name' => 'graphiql',

@@ -2,67 +2,72 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Customer;
 
-use Illuminate\Support\Carbon;
+use Exception;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Event;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use Carbon\Carbon;
 use Webkul\Admin\Http\Controllers\Controller;
-use Webkul\Checkout\Facades\Cart;
-use Webkul\Customer\Repositories\CustomerGroupRepository;
-use Webkul\Customer\Repositories\CustomerNoteRepository;
 use Webkul\Customer\Repositories\CustomerRepository;
-use Webkul\GraphQLAPI\Validators\CustomException;
+use Webkul\Customer\Repositories\CustomerGroupRepository;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class CustomerMutation extends Controller
 {
     /**
      * Create a new controller instance.
      *
+     * @param \Webkul\Customer\Repositories\CustomerRepository  $customerRepository
+     * @param  \Webkul\Customer\Repositories\CustomerGroupRepository  $customerGroupRepository
      * @return void
      */
     public function __construct(
         protected CustomerRepository $customerRepository,
-        protected CustomerNoteRepository $customerNoteRepository,
         protected CustomerGroupRepository $customerGroupRepository
-    ) {}
+    ) {
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
+        if (empty($args['input'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
             'first_name'        => 'string|required',
             'last_name'         => 'string|required',
             'gender'            => 'required',
             'email'             => 'required|unique:customers,email',
-            'phone'             => 'unique:customers,phone',
             'date_of_birth'     => 'string|before:today',
-            'customer_group_id' => 'required|in:'.implode(',', $this->customerGroupRepository->pluck('id')->toArray()),
+            'customer_group_id' => 'required|numeric',
         ]);
 
-        $args['password'] = bcrypt(rand(100000, 10000000));
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
 
-        $args['is_verified'] = 1;
+        $data['password'] = bcrypt(rand(100000, 10000000));
 
-        $args['date_of_birth'] = ! empty($data['date_of_birth']) ? Carbon::createFromTimeString(str_replace('/', '-', $args['date_of_birth']).'00:00:01')->format('Y-m-d') : '';
+        $data['is_verified'] = 1;
+
+        $data['date_of_birth'] = ! empty($data['date_of_birth']) ? Carbon::createFromTimeString(str_replace('/', '-', $data['date_of_birth']).'00:00:01')->format('Y-m-d') : '';
 
         try {
             Event::dispatch('customer.registration.before');
 
-            $customer = $this->customerRepository->create($args);
+            $customer = $this->customerRepository->create($data);
 
             Event::dispatch('customer.registration.after', $customer);
 
-            return [
-                'success'  => true,
-                'message'  => trans('bagisto_graphql::app.admin.customers.customers.create-success'),
-                'customer' => $customer,
-            ];
-        } catch (\Exception $e) {
+            return $customer;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -70,45 +75,45 @@ class CustomerMutation extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
+        if (
+            empty($args['id'])
+            || empty($args['input'])
+        ) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $data = $args['input'];
+
+        $id = $args['id'];
+
+        $validator = Validator::make($data, [
             'first_name'        => 'string|required',
             'last_name'         => 'string|required',
             'gender'            => 'required',
-            'email'             => 'required|unique:customers,email,'.$args['id'],
-            'phone'             => 'unique:customers,phone,'.$args['id'],
+            'email'             => 'required|unique:customers,email,'.$id,
             'date_of_birth'     => 'date|before:today',
-            'customer_group_id' => 'required|in:'.implode(',', $this->customerGroupRepository->pluck('id')->toArray()),
+            'customer_group_id' => 'required|numeric',
         ]);
 
-        $customer = $this->customerRepository->find($args['id']);
-
-        if (! $customer) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.customers.customers.not-found'));
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
         }
 
         try {
-            $args['status'] = $args['status'] ?? 0;
-
-            $args['is_suspended'] = $args['is_suspended'] ?? 0;
+            $data['status'] = ! empty($data['status']) ? $data['status'] : 0;
 
             Event::dispatch('customer.customer.update.before');
 
-            $customer = $this->customerRepository->update($args, $customer->id);
+            $customer = $this->customerRepository->update($data, $id);
 
             Event::dispatch('customer.customer.update.after', $customer);
 
-            return [
-                'success'  => true,
-                'message'  => trans('bagisto_graphql::app.admin.customers.customers.update-success'),
-                'customer' => $customer,
-            ];
-        } catch (\Exception $e) {
+            return $customer;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -116,108 +121,32 @@ class CustomerMutation extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $customer = $this->customerRepository->find($args['id']);
-
-        if (! $customer) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.customers.customers.not-found'));
+        if (empty($args['id'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
         }
 
+        $id = $args['id'];
+
+        $customer = $this->customerRepository->findOrFail($id);
+
         try {
-            if ($this->customerRepository->haveActiveOrders($customer)) {
-                throw new CustomException(trans('bagisto_graphql::app.admin.customers.customers.delete-order-pending'));
+            if ($this->customerRepository->checkIfCustomerHasOrderPendingOrProcessing($customer)) {
+                throw new CustomException(trans('bagisto_graphql::app.admin.customers.delete-order-pending'));
             }
 
-            Event::dispatch('customer.customer.delete.before', $args['id']);
+            Event::dispatch('customer.customer.delete.before', $id);
 
-            $customer->delete();
+            $this->customerRepository->delete($id);
 
-            Event::dispatch('customer.customer.delete.after', $args['id']);
+            Event::dispatch('customer.customer.delete.after', $id);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.customers.customers.delete-success'),
-            ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
-        }
-    }
-
-    /**
-     * To store customer notes
-     *
-     * @return array
-     *
-     * @throws CustomException
-     */
-    public function storeNotes(mixed $rootValue, array $args, GraphQLContext $context)
-    {
-        bagisto_graphql()->validate($args, [
-            'note' => 'string|required',
-        ]);
-
-        $customer = $this->customerRepository->find($args['id']);
-
-        if (! $customer) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.customers.customers.not-found'));
-        }
-
-        try {
-            Event::dispatch('customer.note.create.before', $args['id']);
-
-            $note = $this->customerNoteRepository->create([
-                'customer_id'       => $args['id'],
-                'note'              => $args['note'],
-                'customer_notified' => $args['customer_notified'] ?? 0,
-            ]);
-
-            Event::dispatch('customer.note.create.after', $note);
-
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.customers.customers.note-created-success'),
-                'note'    => $note,
-            ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
-        }
-    }
-
-    /**
-     * Create order for the customer
-     *
-     * @return array
-     *
-     * @throws CustomException
-     */
-    public function createOrder(mixed $rootValue, array $args, GraphQLContext $context)
-    {
-        $customer = $this->customerRepository->find($args['customer_id']);
-
-        if (! $customer) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.customers.customers.not-found'));
-        }
-
-        try {
-            $cart = Cart::createCart([
-                'customer'  => $customer,
-                'is_active' => false,
-            ]);
-
-            $cart->refresh();
-
-            return [
-                'success'            => true,
-                'jump_to_section'    => 'create_order',
-                'cart'               => $cart,
-                'customer_addresses' => $customer->addresses,
-            ];
-        } catch (\Exception $e) {
+            return ['success' => trans('bagisto_graphql::app.admin.customers.delete-success')];
+        } catch(Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }

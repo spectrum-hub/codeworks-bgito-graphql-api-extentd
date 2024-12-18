@@ -1,25 +1,29 @@
 #Catalog\Product Related API
 extend type Query {
-    products(
-        input: FilterProductsInput @spread
-    ): ProductPaginatorResponse! @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\FilterProducts")
+    products(input: FilterProductsInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\FilterProducts")): [Product!] @paginate(type: "PAGINATOR", defaultCount: 10, model: "Webkul\\GraphQLAPI\\Models\\Catalog\\Product")
 
-    product(id: ID @eq): Product @find(model: "Webkul\\Product\\Models\\Product")
+    product(id: ID @eq): Product @find(model: "Webkul\\GraphQLAPI\\Models\\Catalog\\Product")
+
+    productFlats: [ProductFlat!] @paginate(type: "PAGINATOR", defaultCount: 10, model: "Webkul\\Product\\Models\\ProductFlat")
+
+    productFlat(id: ID @eq): ProductFlat @find(model: "Webkul\\Product\\Models\\ProductFlat")
+
+    relatedProducts(productId: ID!): [Product] @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\ProductContent@getRelatedProducts")
 }
 
 extend type Mutation @guard(with: ["admin-api"]) {
     createProduct(
-        input: CreateProductInput! @spread
-    ): ProductResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Catalog\\Products\\ProductMutation@store")
+        input: CreateProductInput!
+    ): Product @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Catalog\\Products\\ProductMutation@store")
 
     updateProduct(
         id: ID!,
-        input: UpdateProductInput! @spread
-    ): ProductResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Catalog\\Products\\ProductMutation@update")
+        input: UpdateProductInput!
+    ): Product @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Catalog\\Products\\ProductMutation@update")
 
     deleteProduct(
         id: ID!
-    ): StatusResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Catalog\\Products\\ProductMutation@delete")
+    ): Product @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Catalog\\Products\\ProductMutation@delete")
 }
 
 input CreateProductInput {
@@ -27,6 +31,7 @@ input CreateProductInput {
     attributeFamilyId: ID! @rename(attribute: "attribute_family_id")
     sku: String!
     superAttributes: [SuperAttributesInput] @rename(attribute: "super_attributes")
+    family: Int
 }
 
 input SuperAttributesInput {
@@ -70,7 +75,7 @@ input UpdateProductInput {
     categories: [Int!]
     channels: [Int!]
     relatedProducts: [Int] @rename(attribute: "related_products")
-    upSells: [Int] @rename(attribute: "up_sells")
+    upSell: [Int] @rename(attribute: "up_sell")
     crossSells: [Int] @rename(attribute: "cross_sells")
     images: [String]
     videos: [String]
@@ -107,52 +112,34 @@ input CustomAttributeInput {
 }
 
 input FilterProductsInput {
-    page: Int!
-    limit: Int!
-    productId: Int @rename(attribute: "product_id")
+    id: ID
     type: String
     sku: String
-    name: String
-    attributeFamily: Int @rename(attribute: "attribute_family")
-    channel: String
-}
-
-type ProductResponse {
-    success: Boolean
-    message: String
-    product: Product
+    parentId: ID @rename(attribute: "parent_id")
+    attributeFamily: String @rename(attribute: "attribute_family")
+    qty: Int
 }
 
 type Product {
     id: ID!
-    sku: String!
     type: String!
-    parentId: ID @rename(attribute: "parent_id")
     attributeFamilyId: ID! @rename(attribute: "attribute_family_id")
-    productNumber: String @rename(attribute: "product_number")
-    name: String
-    shortDescription: String @rename(attribute: "short_description")
-    description: String
+    sku: String!
     urlKey: String! @rename(attribute: "url_key")
-    shareURL: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\ProductContent@getProductShareUrl")
+    name: String
+    description: String
+    shortDescription: String @rename(attribute: "short_description")
     new: Boolean
     featured: Boolean
     status: Boolean
-    guestCheckout: Boolean @rename(attribute: "guest_checkout")
     visibleIndividually: Boolean @rename(attribute: "visible_individually")
-    metaTitle: String @rename(attribute: "meta_title")
-    metaKeywords: String @rename(attribute: "meta_keywords")
-    metaDescription: String @rename(attribute: "meta_description")
-    price: Float
-    specialPrice: Float @rename(attribute: "special_price")
-    specialPriceFrom: String @rename(attribute: "special_price_from")
-    specialPriceTo: String @rename(attribute: "special_price_to")
-    weight: Float
+    guestCheckout: Boolean @rename(attribute: "guest_checkout")
     parentId: ID @rename(attribute: "parent_id")
-    attributeFamilyId: ID! @rename(attribute: "attribute_family_id")
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
     configutableData: ConfigutableProductData @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\ProductContent@getConfigurableData")
+    shareURL: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\ProductContent@getProductShareUrl")
+    productFlats: [ProductFlat!] @hasMany(relation: "product_flats")
     variants: [Product] @hasMany
     parent: Product @belongsTo(relation: "parent")
     attributeFamily: AttributeFamily! @belongsTo(relation: "attribute_family")
@@ -160,7 +147,6 @@ type Product {
     superAttributes: [Attribute!] @belongsToMany(relation: "super_attributes")
     categories: [Category!] @belongsToMany(relation: "categories")
     inventories: [Inventory!] @hasMany
-    channels: [Channel!] @belongsToMany(relation: "channels")
     images: [Image] @hasMany
     cacheBaseImage: [CacheImage] @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\ProductContent@getProductBaseImage")
     cacheGalleryImages: [CacheImage] @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Admin\\Catalog\\Products\\ProductContent@getCacheGalleryImages")
@@ -180,8 +166,52 @@ type Product {
     groupedProducts: [ProductGroupedProduct] @hasMany(relation: "grouped_products")
     bundleOptions: [ProductBundleOption] @hasMany(relation: "bundle_options")
     relatedProducts: [Product!] @belongsToMany(relation: "related_products")
-    upSells: [Product] @belongsToMany(relation: "up_sells")
-    crossSells: [Product] @belongsToMany(relation: "cross_sells")
+    cart: Cart @field(resolver: "Webkul\\GraphQLAPI\\Cart@getCart")
+    # up_sells: [Product] @belongsToMany
+    # cross_sells: [Product] @belongsToMany
+    success: String
+}
+
+type ProductFlat {
+    id: ID!
+    sku: String!
+    productNumber: String @rename(attribute: "product_number")
+    name: String
+    description: String
+    shortDescription: String @rename(attribute: "short_description")
+    urlKey: String @rename(attribute: "url_key")
+    new: Boolean
+    featured: Boolean
+    status: Boolean
+    visibleIndividually: Boolean @rename(attribute: "visible_individually")
+    thumbnail: String
+    price: Float
+    cost: Float
+    specialPrice: Float @rename(attribute: "special_price")
+    specialPriceFrom: String @rename(attribute: "special_price_from")
+    specialPriceTo: String @rename(attribute: "special_price_to")
+    weight: Float
+    color: Int
+    colorLabel: String @rename(attribute: "color_label")
+    size: Int
+    sizeLabel: String @rename(attribute: "size_label")
+    locale: String!
+    channel: String!
+    productId: ID! @rename(attribute: "product_id")
+    parentId: ID @rename(attribute: "parent_id")
+    minPrice: Float @rename(attribute: "min_price")
+    maxPrice: Float @rename(attribute: "max_price")
+    metaTitle: String @rename(attribute: "meta_title")
+    metaKeywords: String @rename(attribute: "meta_keywords")
+    metaDescription: String @rename(attribute: "meta_description")
+    width: Float
+    height: Float
+    depth: Float
+    product: Product! @belongsTo(relation: "product")
+    variants: [ProductFlat] @hasMany
+    parent: ProductFlat @belongsTo(relation: "parent")
+    createdAt: String @rename(attribute: "created_at")
+    updatedAt: String @rename(attribute: "updated_at")
 }
 
 type ProductAttributeValue {

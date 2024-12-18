@@ -2,31 +2,38 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Sales\Orders;
 
-use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use Exception;
 use Webkul\Admin\Http\Controllers\Controller;
-use Webkul\Checkout\Facades\Cart;
-use Webkul\GraphQLAPI\Validators\CustomException;
 use Webkul\Sales\Repositories\OrderRepository;
+use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class OrderMutation extends Controller
 {
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Sales\Repositories\OrderRepository  $orderRepository
      * @return void
      */
-    public function __construct(protected OrderRepository $orderRepository) {}
+    public function __construct(protected OrderRepository $orderRepository)
+    {
+    }
 
     /**
-     * Cancel the specified order.
+     * Remove a resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function cancel(mixed $rootValue, array $args, GraphQLContext $context)
+    public function cancel($rootValue, array $args, GraphQLContext $context)
     {
-        $order = $this->orderRepository->find($args['id']);
+        if (empty($args['id'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $orderId = $args['id'];
+
+        $order = $this->orderRepository->find($orderId);
 
         if (! $order) {
             throw new CustomException(trans('bagisto_graphql::app.admin.sales.orders.not-found'));
@@ -40,56 +47,15 @@ class OrderMutation extends Controller
         }
 
         try {
-            $result = $this->orderRepository->cancel($args['id']);
+            $result = $this->orderRepository->cancel($orderId);
 
             return [
-                'success' => $result,
-                'message' => $result
-                    ? trans('bagisto_graphql::app.admin.sales.orders.cancel-success')
-                    : trans('bagisto_graphql::app.admin.sales.orders.cancel-error'),
-                'order'   => $this->orderRepository->find($args['id']),
+                'status'  => $result,
+                'order'   => $this->orderRepository->find($orderId),
+                'message' => $result ? trans('bagisto_graphql::app.admin.sales.orders.cancel-success') : trans('bagisto_graphql::app.admin.sales.orders.cancel-error')
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
-    }
-
-    /**
-     * Reorder the specified order.
-     *
-     * @return array
-     *
-     * @throws CustomException
-     */
-    public function reorder(mixed $rootValue, array $args, GraphQLContext $context)
-    {
-        $order = $this->orderRepository->find($args['id']);
-
-        if (! $order) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.sales.orders.not-found'));
-        }
-
-        $cart = Cart::createCart([
-            'customer'  => $order->customer,
-            'is_active' => false,
-        ]);
-
-        Cart::setCart($cart);
-
-        foreach ($order->items as $item) {
-            try {
-                Cart::addProduct($item->product, $item->additional);
-            } catch (\Exception $e) {
-            }
-        }
-
-        $cart->refresh();
-
-        return [
-            'success'            => true,
-            'jump_to_section'    => 'create_order',
-            'cart'               => $cart,
-            'customer_addresses' => $cart->customer->addresses,
-        ];
     }
 }

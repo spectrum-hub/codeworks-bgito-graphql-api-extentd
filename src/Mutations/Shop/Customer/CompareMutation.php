@@ -2,132 +2,256 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Shop\Customer;
 
-use App\Http\Controllers\Controller;
+use Exception;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Pagination\Paginator;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use App\Http\Controllers\Controller;
 use Webkul\Customer\Repositories\CompareItemRepository;
-use Webkul\GraphQLAPI\Validators\CustomException;
 use Webkul\Product\Repositories\ProductRepository;
+use Webkul\Product\Repositories\ProductFlatRepository;
+use Webkul\GraphQLAPI\Validators\Customer\CustomException;
 
 class CompareMutation extends Controller
 {
     /**
+     * Contains current guard
+     *
+     * @var array
+     */
+    protected $guard;
+
+    /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Product\Repositories\ProductFlatRepository  $productFlatRepository
      * @return void
      */
     public function __construct(
+        protected CompareItemRepository $compareItemRepository,
         protected ProductRepository $productRepository,
-        protected CompareItemRepository $compareItemRepository
-    ) {}
+        protected ProductFlatRepository $productFlatRepository
+    ) {
+        $this->guard = 'api';
+
+        auth()->setDefaultDriver($this->guard);
+
+        $this->middleware('auth:'.$this->guard);
+    }
+
+    /**
+     * Returns customer's compare product list
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function compareProducts($rootValue, array $args, GraphQLContext $context)
+    {
+        if (! bagisto_graphql()->guard($this->guard)->check()) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.customer.no-login-customer'),
+                'Invalid request header parameter.'
+            );
+        }
+
+        try {
+            $params = isset($args['input']) ? $args['input'] : (isset($args['id']) ? $args : []);
+
+            $currentPage = $params['page'] ?? 1;
+
+            Paginator::currentPageResolver(function () use ($currentPage) {
+                return $currentPage;
+            });
+
+            $compareProducts = app(CompareItemRepository::class)->scopeQuery(function ($query) use ($params) {
+
+                $customer = bagisto_graphql()->guard($this->guard)->user();
+
+                $qb = $query->select('compare_items.*')
+                    ->leftJoin('product_flat', 'compare_items.product_id', '=', 'product_flat.product_id')
+                    ->leftJoin('customers','customers.id','=','compare_items.customer_id')
+                    ->where('customers.id', $customer->id)
+                    ->groupBy('compare_items.product_id');
+
+                return $qb;
+             });
+
+             if (! empty($args['id'])) {
+                $compareProducts = $compareProducts->first();
+            } else {
+                $compareProducts = $compareProducts->paginate(isset($params['limit']) ? $params['limit'] : 10);
+            }
+
+            if (($compareProducts && isset($compareProducts->first()->id)) || isset($compareProducts->id)) {
+                return $compareProducts;
+            }
+
+            throw new CustomException(
+                'You have no items in your compare list',
+                'You have no items in your compare list'
+            );
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
+        }
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        $customer = bagisto_graphql()->authorize();
+        if (empty($args['input'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.admin.response.error-invalid-parameter'),
+                trans('bagisto_graphql::app.admin.response.error-invalid-parameter')
+            );
+        }
 
-        bagisto_graphql()->validate($args, [
+        if (! bagisto_graphql()->guard($this->guard)->check()) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.customer.no-login-customer'),
+                trans('bagisto_graphql::app.shop.customer.no-login-customer')
+            );
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
             'product_id' => 'required',
         ]);
 
-        $product = $this->productRepository->find($args['product_id']);
-
-        if (! $product) {
-            throw new CustomException(trans('bagisto_graphql::app.shop.customers.compare-product.product-not-found'));
+        if ($validator->fails()) {
+            throw new CustomException(
+                $validator->messages(),
+                $validator->messages()
+            );
         }
 
         try {
             $compareProduct = $this->compareItemRepository->findOneByField([
-                'customer_id' => $customer->id,
-                'product_id'  => $product->id,
+                'customer_id' =>  bagisto_graphql()->guard($this->guard)->user()->id,
+                'product_id'  => $data['product_id'],
             ]);
 
             if ($compareProduct) {
                 return [
-                    'success'        => true,
-                    'message'        => trans('bagisto_graphql::app.shop.customers.compare-product.already-added'),
-                    'compareProduct' => $compareProduct,
+                    'success'        => trans('shop::app.compare.already-added'),
+                    'compareProduct' => [$compareProduct],
                 ];
             } else {
-                $compareProduct = $this->compareItemRepository->create([
-                    'customer_id' => $customer->id,
-                    'product_id'  => $product->id,
+                $this->compareItemRepository->create([
+                    'customer_id' => bagisto_graphql()->guard($this->guard)->user()->id,
+                    'product_id'  => $data['product_id'],
                 ]);
 
                 return [
-                    'success'        => true,
-                    'message'        => trans('bagisto_graphql::app.shop.customers.compare-product.item-add-success'),
-                    'compareProduct' => $compareProduct,
+                    'success'        => trans('shop::app.compare.item-add-success'),
+                    'compareProduct' => $this->compareItemRepository->findWhere(['customer_id' => bagisto_graphql()->guard($this->guard)->user()->id]),
                 ];
             }
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  array  $args
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $customer = bagisto_graphql()->authorize();
+        if (empty($args['input'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.admin.response.error-invalid-parameter'),
+                trans('bagisto_graphql::app.admin.response.error-invalid-parameter')
+            );
+        }
 
-        bagisto_graphql()->validate($args, [
+        if (! bagisto_graphql()->guard($this->guard)->check()) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.customer.no-login-customer'),
+                trans('bagisto_graphql::app.shop.customer.no-login-customer')
+            );
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
             'product_id' => 'required',
         ]);
 
-        $compareProduct = $this->compareItemRepository->findOneWhere([
-            'customer_id' => $customer->id,
-            'product_id'  => $args['product_id'],
-        ]);
-
-        if (! $compareProduct) {
-            throw new CustomException(trans('bagisto_graphql::app.shop.customers.compare-product.not-found'));
+        if ($validator->fails()) {
+            throw new CustomException(
+                $validator->messages(),
+                $validator->messages()
+            );
         }
 
         try {
-            $compareProduct->delete();
+            $customer = bagisto_graphql()->guard($this->guard)->user();
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.shop.customers.compare-product.remove-success'),
-            ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+            $compareProduct = $this->compareItemRepository->findOneWhere($data);
+
+            if ($compareProduct) {
+                $this->compareItemRepository->delete($compareProduct->id);
+
+                return [
+                    'status'         => true,
+                    'success'        => trans('shop::app.compare.remove-success'),
+                    'compareProduct' => $this->compareItemRepository->findWhere(['customer_id' => $customer->id]),
+                ];
+            } else {
+                return [
+                    'status'  => false,
+                    'success' => trans('bagisto_graphql::app.shop.customer.account.not-found', ['name' => 'Compare Product']),
+                ];
+            }
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Remove all the compare entries of customer.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  array  $args
+     * @return \Illuminate\Http\Response
      */
-    public function deleteAll(mixed $rootValue, array $args, GraphQLContext $context)
+    public function deleteAll($rootValue, array $args, GraphQLContext $context)
     {
-        $customer = bagisto_graphql()->authorize();
+        if (! bagisto_graphql()->guard($this->guard)->check()) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.customer.no-login-customer'),
+                trans('bagisto_graphql::app.shop.customer.no-login-customer')
+            );
+        }
 
         try {
             $this->compareItemRepository->deleteWhere([
-                'customer_id' => $customer->id,
+                'customer_id' => bagisto_graphql()->guard($this->guard)->user()->id,
             ]);
 
             return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.shop.customers.compare-product.mass-remove-success'),
+                'status'  => true,
+                'success' => trans('shop::app.compare.remove-all-success'),
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 }

@@ -1,12 +1,17 @@
 {
-    "name": "codeworks/graphql-api-extend-bagisto",
-    "description": "Codeworks GraphQL API extend for my project ",
+    "name": "bagisto/graphql-api",
+    "description": "Bagisto GraphQL API",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Vivek Sharma",
+            "email": "viveksh047@webkul.in"
+        }
+    ],
     "require": {
         "php-open-source-saver/jwt-auth": "^2.1",
         "nuwave/lighthouse": "^6.23",
-        "mll-lab/laravel-graphiql": "^3.1",
-        "astrotomic/laravel-translatable": "^11.0.0"
+        "mll-lab/laravel-graphiql": "^3.1"
     },
     "autoload": {
         "psr-4": {
@@ -23,4 +28,3 @@
     },
     "minimum-stability": "dev"
 }
- 

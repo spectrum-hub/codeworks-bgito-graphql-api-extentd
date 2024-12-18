@@ -2,52 +2,55 @@
 
 namespace Webkul\GraphQLAPI\Queries\Shop\Common;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterCompareProduct extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
-        if (
-            isset($input['name'])
-            && isset($input['price'])
-        ) {
+        $arguments = $this->getFilterParams($input);
+         
+         //filter Both the relationship Product Flat for name and price
+       if (isset($arguments['name']) && isset($arguments['price']) ) {
             $name = $input['name'];
             $price = $input['price'];
 
-            unset($input['name']);
-            unset($input['price']);
+            unset($arguments['name']);
+            unset($arguments['price']);
 
-            return $query->whereHas('product_flat', function ($q) use ($name, $price) {
-                $q->where([
-                    'name'  => $name,
-                    'price' => $price,
-                ]);
-            })->where($input);
-        }
+            return $query->whereHas('product_flat',function ($q) use ($name,$price) {
+                $q->where(['name' => $name,
+                    'price' => $price]);
+            })->where($arguments);
+        }      
 
-        if (isset($input['name'])) {
+        // filter the relationship Product Flat for name 
+        if (isset($arguments['name'])) {
             $name = $input['name'];
-            unset($input['name']);
+            unset($arguments['name']);
 
-            return $query->whereHas('product_flat', function ($q) use ($name) {
-                $q->where('name', $name);
-            })->where($input);
+            return $query->whereHas('product_flat',function ($q) use ($name) {
+                $q->where("name", $name);
+            })->where($arguments);
         }
 
-        if (isset($input['price'])) {
+        // filter the relationship Product Flat for price
+        if (isset($arguments['price'])) {
             $price = $input['price'];
-            unset($input['price']);
+            unset($arguments['price']);
 
-            return $query->whereHas('product_flat', function ($q) use ($price) {
-                $q->where('price', $price);
-            })->where($input);
+            return $query->whereHas('product_flat',function ($q) use ($price) {
+                $q->where("price", $price);
+            })->where($arguments);
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }

@@ -1,46 +1,18 @@
 # Sales\Order Related APIs
 extend type Query @guard(with: ["admin-api"]) {
-    orders(
-        input: FilterOrderInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrder")
-    ): [Order!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\Order"
-    )
+    orders(input: FilterOrderInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrder")): [Order!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\Order")
 
     order(id: ID @eq): Order @find(model: "Webkul\\Sales\\Models\\Order")
 
-    orderInvoices(
-        input: FilterOrderInvoiceInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrderInvoice")
-    ): [Invoice!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\Invoice"
-    )
+    orderInvoices(input: FilterOrderInvoiceInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrderInvoice")): [Invoice!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\Invoice")
 
     orderInvoice(id: ID @eq): Invoice @find(model: "Webkul\\Sales\\Models\\Invoice")
 
-    orderShipments(
-        input: FilterOrderShipmentInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrderShipment")
-    ): [Shipment!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\Shipment"
-    )
+    orderShipments(input: FilterOrderShipmentInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrderShipment")): [Shipment!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\Shipment")
 
     orderShipment(id: ID @eq): Shipment @find(model: "Webkul\\Sales\\Models\\Shipment")
 
-    orderRefunds(
-        input: FilterOrderRefundInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrderRefund")
-    ): [Refund!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\Refund"
-    )
+    orderRefunds(input: FilterOrderRefundInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Orders\\FilterOrderRefund")): [Refund!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\Refund")
 
     orderRefund(id: ID @eq): Refund @find(model: "Webkul\\Sales\\Models\\Refund")
 }
@@ -48,11 +20,7 @@ extend type Query @guard(with: ["admin-api"]) {
 extend type Mutation @guard(with: ["admin-api"]) {
     cancelOrder(
         id: ID!
-    ): CancelOrderResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Orders\\OrderMutation@cancel")
-
-    adminReorder(
-        id: ID!
-    ): OrderResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Orders\\OrderMutation@reorder")
+    ): DeleteOrderResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Orders\\OrderMutation@cancel")
 }
 
 input FilterOrderInput {
@@ -96,12 +64,14 @@ input FilterOrderRefundInput {
 type Order {
     id: Int!
     incrementId: String @rename(attribute: "increment_id")
-    status: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\OrderQuery@getTranslatedOrderStatus")
+    status: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\CustomerOrderQuery@getTranslatedOrderStatus")
     channelName: String @rename(attribute: "channel_name")
     isGuest: Int @rename(attribute: "is_guest")
     customerEmail: String @rename(attribute: "customer_email")
     customerFirstName: String @rename(attribute: "customer_first_name")
     customerLastName: String @rename(attribute: "customer_last_name")
+    customerCompanyName: String @rename(attribute: "customer_company_name")
+    customerVatId: String @rename(attribute: "customer_vat_id")
     shippingMethod: String @rename(attribute: "shipping_method")
     shippingTitle: String @rename(attribute: "shipping_title")
     shippingDescription: String @rename(attribute: "shipping_description")
@@ -143,57 +113,59 @@ type Order {
     baseShippingInvoiced: Float @rename(attribute: "base_shipping_invoiced")
     shippingRefunded: Float @rename(attribute: "shipping_refunded")
     baseShippingRefunded: Float @rename(attribute: "base_shipping_refunded")
-    shippingDiscountAmount: Float @rename(attribute: "shipping_discount_amount")
-    baseShippingDiscountAmount: Float @rename(attribute: "base_shipping_discount_amount")
-    shippingTaxAmount: Float @rename(attribute: "shipping_tax_amount")
-    baseShippingTaxAmount: Float @rename(attribute: "base_shipping_tax_amount")
-    shippingTaxRefunded: Float @rename(attribute: "shipping_tax_refunded")
-    baseShippingTaxRefunded: Float @rename(attribute: "base_shipping_tax_refunded")
-    subTotalInclTax: Float @rename(attribute: "sub_total_incl_tax")
-    baseSubTotalInclTax: Float @rename(attribute: "base_sub_total_incl_tax")
-    shippingAmountInclTax: Float @rename(attribute: "shipping_amount_incl_tax")
-    baseShippingAmountInclTax: Float @rename(attribute: "base_shipping_amount_incl_tax")
+    formattedPrice: FormattedOrderPriceData @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getOrderPriceData")
     customerId: Int @rename(attribute: "customer_id")
     customerType: String @rename(attribute: "customer_type")
     channelId: Int @rename(attribute: "channel_id")
     channelType: String @rename(attribute: "channel_type")
     cartId: ID @rename(attribute: "cart_id")
     appliedCartRuleIds: String @rename(attribute: "applied_cart_rule_ids")
+    shippingDiscountAmount: Float @rename(attribute: "shipping_discount_amount")
+    baseShippingDiscountAmount: Float @rename(attribute: "base_shipping_discount_amount")
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
-    formattedPrice: FormattedPrice @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getOrderPriceData")
+    billingAddress: OrderAddress! @rename(attribute: "billing_address")
+    shippingAddress: OrderAddress @rename(attribute: "shipping_address")
+    refunds: [Refund!] @hasMany (relation: "refunds")
+    addresses: [OrderAddress!] @hasMany (relation: "addresses")
     items: [OrderItem!] @hasMany
     comments: [OrderComment] @hasMany
-    downloadableLinkPurchased: [DownloadableLinkPurchased] @hasMany(relation: "downloadable_link_purchased")
     shipments: [Shipment] @hasMany
     invoices: [Invoice] @hasMany
-    refunds: [Refund!] @hasMany (relation: "refunds")
-    customer: Customer @morphTo
-    addresses: [Address!] @hasMany
+    customer: Customer @belongsTo(relation: "customer")
     payment: OrderPayment @hasOne
-    billingAddress: Address! @rename(attribute: "billing_address")
-    shippingAddress: Address @rename(attribute: "shipping_address")
     channel: Channel @belongsTo(relation: "channel")
+    cart: Cart! @belongsTo(relation: "cart")
+    success: String
+}
+
+type OrderAddress {
+    id: Int
+    customerId: Int @rename(attribute: "customer_id")
+    cartId: Int @rename(attribute: "cart_id")
+    orderId: Int @rename(attribute: "order_id")
+    firstName: String @rename(attribute: "first_name")
+    lastName: String @rename(attribute: "last_name")
+    gender: String
+    companyName: String @rename(attribute: "company_name")
+    address1: String
+    address2: String
+    postcode: String
+    city: String
+    state: String
+    country: String
+    email: String
+    phone: String
+    vatId: String @rename(attribute: "vat_id")
+    defaultAddress: Int @rename(attribute: "default_address")
 }
 
 type OrderComment {
     id: ID!
-    orderId: ID! @rename(attribute: "order_id")
     comment: String
     customerNotified: Boolean! @rename(attribute: "customer_notified")
-    createdAt: DateTime @rename(attribute: "created_at")
-    updatedAt: DateTime @rename(attribute: "updated_at")
+    orderId: ID! @rename(attribute: "order_id")
     order: Order! @belongsTo(relation: "order")
-}
-
-type OrderPayment {
-    id: ID!
-    orderId: ID @rename(attribute: "order_id")
-    method: String!
-    methodTitle: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\OrderQuery@getOrderPaymentTitle")
-    additional: OrderPaymentAdditional @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\OrderQuery@getOrderPaymentAdditional")
-    createdAt: DateTime @rename(attribute: "created_at")
-    updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
 type OrderPaymentAdditional {
@@ -201,15 +173,50 @@ type OrderPaymentAdditional {
     value: String
 }
 
-type CancelOrderResponse {
-    success: Boolean
-    message: String
-    order: Order
+type OrderPayment {
+    id: ID!
+    method: String!
+    methodTitle: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\CustomerOrderQuery@getOrderPaymentTitle")
+    orderId: ID @rename(attribute: "order_id")
+    additional: OrderPaymentAdditional @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\CustomerOrderQuery@getOrderPaymentAdditional")
+    createdAt: DateTime @rename(attribute: "created_at")
+    updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
-type OrderResponse {
-    success: Boolean
-    jumpToSection: String @rename(attribute: "jump_to_section")
-    cart: Cart
-    customerAddresses: Address @rename(attribute: "customer_addresses")
+type FormattedOrderPriceData {
+    grandTotal: String @rename(attribute: "grand_total")
+    baseGrandTotal: String @rename(attribute: "base_grand_total")
+    grandTotalInvoiced: String @rename(attribute: "grand_total_invoiced")
+    baseGrandTotalInvoiced: String @rename(attribute: "base_grand_total_invoiced")
+    grandTotalRefunded: String @rename(attribute: "grand_total_refunded")
+    baseGrandTotalRefunded: String @rename(attribute: "base_grand_total_refunded")
+    subTotal: String @rename(attribute: "sub_total")
+    baseSubTotal: String @rename(attribute: "base_sub_total")
+    subTotalInvoiced: String @rename(attribute: "sub_total_invoiced")
+    baseSubTotalInvoiced: String @rename(attribute: "base_sub_total_invoiced")
+    subTotalRefunded: String @rename(attribute: "sub_total_refunded")
+    discountAmount: String @rename(attribute: "discount_amount")
+    baseDiscountAmount: String @rename(attribute: "base_discount_amount")
+    discountInvoiced: String @rename(attribute: "discount_invoiced")
+    baseDiscountInvoiced: String @rename(attribute: "base_discount_invoiced")
+    discountRefunded: String @rename(attribute: "discount_refunded")
+    baseDiscountRefunded: String @rename(attribute: "base_discount_refunded")
+    taxAmount: String @rename(attribute: "tax_amount")
+    baseTaxAmount: String @rename(attribute: "base_tax_amount")
+    taxAmountInvoiced: String @rename(attribute: "tax_amount_invoiced")
+    baseTaxAmountInvoiced: String @rename(attribute: "base_tax_amount_invoiced")
+    taxAmountRefunded: String @rename(attribute: "tax_amount_refunded")
+    baseTaxAmountRefunded: String @rename(attribute: "base_tax_amount_refunded")
+    shippingAmount: String @rename(attribute: "shipping_amount")
+    baseShippingAmount: String @rename(attribute: "base_shipping_amount")
+    shippingInvoiced: String @rename(attribute: "shipping_invoiced")
+    baseShippingInvoiced: String @rename(attribute: "base_shipping_invoiced")
+    shippingRefunded: String @rename(attribute: "shipping_refunded")
+    baseShippingRefunded: String @rename(attribute: "base_shipping_refunded")
+}
+
+type DeleteOrderResponse {
+    status: Boolean
+    message: String
+    order: Order
 }

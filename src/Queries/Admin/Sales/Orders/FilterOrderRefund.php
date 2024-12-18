@@ -2,50 +2,59 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Sales\Orders;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterOrderRefund extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
-        if (isset($input['refund_date'])) {
-            $input['created_at'] = $input['refund_date'];
+        $arguments = $this->getFilterParams($input);
 
-            unset($input['refund_date']);
+        // Convert the refund_date parameter to created_at parameter
+         if (isset($arguments['refund_date'])) {
+            $arguments['created_at'] = $arguments['refund_date'];
+
+            unset($arguments['refund_date']);
         }
 
-        if (isset($input['refunded'])) {
-            $input['base_grand_total'] = $input['refunded'];
+        // Convert the refunded parameter to base_grand_total parameter
+        if (isset($arguments['refunded'])) {
+            $arguments['base_grand_total'] = $arguments['refunded'];
 
-            unset($input['refunded']);
+            unset($arguments['refunded']);
         }
 
-        if (isset($input['status'])) {
-            $input['state'] = $input['status'];
+        // Convert the Status parameter to State parameter
+        if (isset($arguments['status'])) {
+            $arguments['state'] = $arguments['status'];
 
-            unset($input['status']);
+            unset($arguments['status']);
         }
 
-        if (isset($input['customer_name'])) {
-            $nameChanger = $this->nameSplitter($input['customer_name']);
+        // ilter the relationship Customer Name
+        if (isset($arguments['customer_name'])) {
+            $nameChanger = $this->nameSplitter($arguments['customer_name']);
 
             $firstname = $nameChanger['firstname'];
             $lastname = $nameChanger['lastname'];
 
-            unset($input['customer_name']);
+            unset($arguments['customer_name']);
 
-            return $query->whereHas('order', function ($q) use ($firstname, $lastname) {
+            return $query->whereHas('order',function ($q) use ($firstname, $lastname) {
                 $q->where([
                     'customer_first_name' => $firstname,
                     'customer_last_name'  => $lastname,
                 ]);
-            })->where($input);
+            })->where($arguments);
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }

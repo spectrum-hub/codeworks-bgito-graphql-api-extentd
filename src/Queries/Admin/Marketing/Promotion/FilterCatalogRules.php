@@ -2,34 +2,40 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Marketing\Promotion;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterCatalogRules extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
-        if (isset($input['start'])) {
-            $input['starts_from'] = $input['start'];
+        $arguments = $this->getFilterParams($input);
 
-            unset($input['start']);
+        // Convert the invoice_date parameter to created_at parameter
+        if (isset($arguments['start'])) {
+            $arguments['starts_from'] = $arguments['start'];
+            unset($arguments['start']);
         }
 
-        if (isset($input['end'])) {
-            $input['ends_till'] = $input['end'];
-
-            unset($input['end']);
+        // Convert the grand_total parameter to base_grand_total parameter
+        if (isset($arguments['end'])) {
+            $arguments['ends_till'] = $arguments['end'];
+            unset($arguments['end']);
         }
 
-        if (isset($input['priority'])) {
-            $input['sort_order'] = $input['priority'];
 
-            unset($input['priority']);
+        // Convert the grand_total parameter to base_grand_total parameter
+        if (isset($arguments['priority'])) {
+            $arguments['sort_order'] = $arguments['priority'];
+            unset($arguments['priority']);
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }

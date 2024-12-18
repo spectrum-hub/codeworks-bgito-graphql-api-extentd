@@ -1,36 +1,21 @@
 # Seles\Shipment Related APIs
 extend type Query @guard(with: ["admin-api"]) {
-    shipments(
-        input: FilterShipmentInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Shipments\\FilterShipment")
-    ): [Shipment!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\Shipment"
-    )
+    shipments(input: FilterShipmentInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Shipments\\FilterShipment")): [Shipment!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\Shipment")
 
     shipment(id: ID @eq): Shipment @find(model: "Webkul\\Sales\\Models\\Shipment")
 
-    shipmentItems(
-        input: FilterShipmentItemInput!
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\CommonFilter")
-    ): [ShipmentItem!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\ShipmentItem"
-    )
+    shipmentItems(input: FilterShipmentItemInput! @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Shipments\\FilterShipmentItem")): [ShipmentItem!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\ShipmentItem")
 
     shipmentItem(
         id: ID @eq,
-        input: FilterShipmentItemInput!
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\CommonFilter")
+        input: FilterShipmentItemInput! @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Shipments\\FilterShipmentItem")
     ): ShipmentItem @find(model: "Webkul\\Sales\\Models\\ShipmentItem")
 }
 
 extend type Mutation @guard(with: ["admin-api"]) {
     createShipment(
-        input: CreateShipmentInput! @spread
-    ): ShipmentResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Shipments\\ShipmentMutation@store")
+        input: CreateShipmentInput!
+    ): Shipment  @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Shipments\\ShipmentMutation@store")
 }
 
 input FilterShipmentInput {
@@ -67,12 +52,6 @@ input ShipmentDataInput {
     quantity: Int!
 }
 
-type ShipmentResponse {
-    success: Boolean
-    message: String
-    shipment: Shipment
-}
-
 type Shipment {
     id: Int
     status: String
@@ -86,15 +65,14 @@ type Shipment {
     customerType: String @rename(attribute: "customer_type")
     orderId: Int @rename(attribute: "order_id")
     orderAddressId: Int @rename(attribute: "order_address_id")
-    inventorySourceId: Int @rename(attribute: "inventory_source_id")
-    inventorySourceName: String @rename(attribute: "inventory_source_name")
     createdAt: String @rename(attribute: "created_at")
     updatedAt: String @rename(attribute: "updated_at")
+    inventorySourceId: Int @rename(attribute: "inventory_source_id")
+    inventorySourceName: String @rename(attribute: "inventory_source_name")
     order: Order! @belongsTo
     items: [ShipmentItem!] @hasMany
     inventorySource: InventorySource! @belongsTo(relation: "inventory_source")
     customer: Customer @belongsTo(relation: "customer")
-    address: Address @belongsTo(relation: "address")
 }
 
 type ShipmentItem {
@@ -108,17 +86,22 @@ type ShipmentItem {
     basePrice: Float @rename(attribute: "base_price")
     total: Float
     baseTotal: Float @rename(attribute: "base_total")
-    priceInclTax: Float @rename(attribute: "price_incl_tax")
-    basePriceInclTax: Float @rename(attribute: "base_price_incl_tax")
-    formattedPrice: FormattedPrice @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getShipmentItemPriceData")
     productId: ID! @rename(attribute: "product_id")
     productType: String @rename(attribute: "product_type")
     orderItemId: ID! @rename(attribute: "order_item_id")
     shipmentId: ID! @rename(attribute: "shipment_id")
-    additional: ItemAdditional @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Common\\FilterItem@additional")
+    additional: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Common\\FilterCart@additional")
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
+    formattedPrice: FormattedShipmentItemPriceData @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getShipmentItemPriceData")
     shipment: Shipment! @belongsTo(relation: "shipment")
     orderItem: OrderItem! @belongsTo(relation: "order_item")
     product: Product! @belongsTo(relation: "product")
+}
+
+type FormattedShipmentItemPriceData {
+    price: String @rename(attribute: "price")
+    basePrice: String @rename(attribute: "base_price")
+    total: String @rename(attribute: "total")
+    baseTotal: String @rename(attribute: "base_total")
 }

@@ -2,30 +2,32 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Catalog\Categories;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterCategory extends BaseFilter
 {
     /**
-     * filter the category's query
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
+        $arguments = $this->getFilterParams($input);
+
         $qbConditions = [];
 
-        foreach ($input as $key => $argument) {
-            if (! $argument) {
-                unset($input[$key]);
+        foreach ($arguments as $key => $argument) {
+            if (! $argument ) {
+                unset($arguments[$key]);
             }
 
-            if (
-                in_array($key, ['name', 'slug'])
-                && $argument
-            ) {
+            if (in_array($key, ['name', 'slug']) && $argument) {
                 $qbConditions[$key] = $argument;
 
-                unset($input[$key]);
+                unset($arguments[$key]);
             }
         }
 
@@ -33,6 +35,6 @@ class FilterCategory extends BaseFilter
             foreach ($qbConditions as $column => $condition) {
                 $q->where($column, 'like', '%'.urldecode($condition).'%');
             }
-        })->where($input);
+        })->where($arguments);
     }
 }

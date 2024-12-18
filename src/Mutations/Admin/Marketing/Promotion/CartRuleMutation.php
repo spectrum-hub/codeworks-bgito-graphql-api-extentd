@@ -2,44 +2,49 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Marketing\Promotion;
 
+use Exception;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Event;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 use Webkul\Admin\Http\Controllers\Controller;
-use Webkul\CartRule\Repositories\CartRuleCouponRepository;
 use Webkul\CartRule\Repositories\CartRuleRepository;
-use Webkul\Core\Repositories\ChannelRepository;
-use Webkul\Customer\Repositories\CustomerGroupRepository;
-use Webkul\GraphQLAPI\Validators\CustomException;
+use Webkul\CartRule\Repositories\CartRuleCouponRepository;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class CartRuleMutation extends Controller
 {
     /**
      * Create a new controller instance.
      *
+     * @param \Webkul\CartRule\Repositories\CartRuleRepository  $cartRuleRepository
+     * @param \Webkul\CartRule\Repositories\CartRuleCouponRepository  $cartRuleCouponRepository
      * @return void
      */
     public function __construct(
         protected CartRuleRepository $cartRuleRepository,
-        protected CartRuleCouponRepository $cartRuleCouponRepository,
-        protected ChannelRepository $channelRepository,
-        protected CustomerGroupRepository $customerGroupRepository
-    ) {}
+        protected CartRuleCouponRepository $cartRuleCouponRepository
+    ) {
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        $args['use_auto_generation'] = $args['use_auto_generation'] ?? 0;
+        if (empty($args['input'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
 
-        bagisto_graphql()->validate($args, [
+        $params = $args['input'];
+
+        $params['use_auto_generation'] = empty($params['use_auto_generation']) ? 0 : 1;
+
+        $validator = Validator::make($params, [
             'name'                => 'required',
-            'channels'            => 'required|array|min:1|in:'.implode(',', $this->channelRepository->pluck('id')->toArray()),
-            'customer_groups'     => 'required|array|min:1|in:'.implode(',', $this->customerGroupRepository->pluck('id')->toArray()),
+            'channels'            => 'required|array|min:1',
+            'customer_groups'     => 'required|array|min:1',
             'coupon_type'         => 'required',
             'use_auto_generation' => 'required_if:coupon_type,==,1',
             'coupon_code'         => 'required_if:use_auto_generation,==,0',
@@ -49,19 +54,19 @@ class CartRuleMutation extends Controller
             'discount_amount'     => 'required|numeric',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
         try {
             Event::dispatch('promotions.cart_rule.create.before');
 
-            $cartRule = $this->cartRuleRepository->create($args);
+            $cartRule = $this->cartRuleRepository->create($params);
 
             Event::dispatch('promotions.cart_rule.create.after', $cartRule);
 
-            return [
-                'success'   => true,
-                'message'   => trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.create-success'),
-                'cart_rule' => $cartRule,
-            ];
-        } catch (\Exception $e) {
+            return $cartRule;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -69,18 +74,26 @@ class CartRuleMutation extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        $args['use_auto_generation'] = $args['use_auto_generation'] ?? 0;
+        if (
+            empty($args['id'])
+            || empty($args['input'])
+        ) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
 
-        bagisto_graphql()->validate($args, [
+        $params = $args['input'];
+        $id = $args['id'];
+
+        $params['use_auto_generation'] = empty($params['use_auto_generation']) ? 0 : empty($params['use_auto_generation']);
+
+        $validator = Validator::make($params, [
             'name'                => 'required',
-            'channels'            => 'required|array|min:1|in:'.implode(',', $this->channelRepository->pluck('id')->toArray()),
-            'customer_groups'     => 'required|array|min:1|in:'.implode(',', $this->customerGroupRepository->pluck('id')->toArray()),
+            'channels'            => 'required|array|min:1',
+            'customer_groups'     => 'required|array|min:1',
             'coupon_type'         => 'required',
             'use_auto_generation' => 'required_if:coupon_type,==,1',
             'coupon_code'         => 'required_if:use_auto_generation,==,0',
@@ -90,31 +103,27 @@ class CartRuleMutation extends Controller
             'discount_amount'     => 'required|numeric',
         ]);
 
-        $cartRule = $this->cartRuleRepository->find($args['id']);
-
-        if (! $cartRule) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.not-found'));
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
         }
 
         try {
+            $cartRule = $this->cartRuleRepository->findOrFail($id);
+
             Event::dispatch('promotions.cart_rule.update.before', $cartRule);
 
-            if (isset($args['autogenerated_coupons'])) {
-                $this->generateCoupons($args['autogenerated_coupons'], $cartRule->id);
+            if (isset($params['autogenerated_coupons'])) {
+                $this->generateCoupons($params['autogenerated_coupons'], $id);
 
-                unset($args['autogenerated_coupons']);
+                unset($params['autogenerated_coupons']);
             }
 
-            $cartRule = $this->cartRuleRepository->update($args, $cartRule->id);
+            $cartRule = $this->cartRuleRepository->update($params, $id);
 
             Event::dispatch('promotions.cart_rule.update.after', $cartRule);
 
-            return [
-                'success'   => true,
-                'message'   => trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.update-success'),
-                'cart_rule' => $cartRule,
-            ];
-        } catch (\Exception $e) {
+            return $cartRule;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -122,30 +131,31 @@ class CartRuleMutation extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $cartRule = $this->cartRuleRepository->find($args['id']);
-
-        if (! $cartRule) {
-            throw new CustomException(trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.not-found'));
+        if (empty($args['id'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
         }
 
+        $id = $args['id'];
+
+        $cartRule = $this->cartRuleRepository->find($id);
+
         try {
-            Event::dispatch('promotions.cart_rule.delete.before', $args['id']);
+            if ($cartRule) {
+                Event::dispatch('promotions.cart_rule.delete.before', $id);
 
-            $cartRule->delete();
+                $cartRule->delete();
 
-            Event::dispatch('promotions.cart_rule.delete.after', $args['id']);
+                Event::dispatch('promotions.cart_rule.delete.after', $id);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.delete-success'),
-            ];
-        } catch (\Exception $e) {
+                return ['success' => trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.delete-success')];
+            }
+
+            throw new CustomException(trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.delete-failed'));
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -153,29 +163,25 @@ class CartRuleMutation extends Controller
     /**
      * Generate coupon code for cart rule
      *
-     * @return object
-     *
-     * @throws CustomException
+     * @return Response
      */
-    public function generateCoupons(array $params, $id)
+    public function generateCoupons($params, $id)
     {
-        bagisto_graphql()->validate($params, [
+        Validator::make($params, [
             'coupon_qty'  => 'required|integer|min:1',
             'code_length' => 'required|integer|min:10',
             'code_format' => 'required',
         ]);
 
         try {
-            $cartRule = $this->cartRuleRepository->find($id);
-
-            if (! $cartRule) {
-                throw new CustomException(trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.not-found'));
+            if (! $id) {
+                throw new CustomException(trans('bagisto_graphql::app.admin.marketing.promotions.cart-rules.cart-rule-not-defind'));
             }
 
             $coupon = $this->cartRuleCouponRepository->generateCoupons($params, $id);
 
             return $coupon;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }

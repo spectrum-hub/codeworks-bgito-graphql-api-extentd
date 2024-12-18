@@ -2,185 +2,252 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Shop\Customer;
 
+use Hash;
+use Exception;
+use Carbon\Carbon;
+use Webkul\Core\Rules\PhoneNumber;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
-use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
-use Webkul\Core\Repositories\SubscribersListRepository;
+use Webkul\Core\Rules\AlphaNumericSpace;
+use Illuminate\Support\Facades\Validator;
 use Webkul\Customer\Repositories\CustomerRepository;
-use Webkul\GraphQLAPI\Validators\CustomException;
-use Webkul\Sales\Models\Order;
+use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use Webkul\GraphQLAPI\Validators\Customer\CustomException;
 
 class AccountMutation extends Controller
 {
     /**
+     * Contains current guard
+     *
+     * @var array
+     */
+    protected $guard;
+
+    /**
      * allowedImageMimeTypes array
+     *
      */
     protected $allowedImageMimeTypes = [
-        'bmp'  => 'image/bmp',
+        'png'  => 'image/png',
         'jpe'  => 'image/jpeg',
         'jpeg' => 'image/jpeg',
         'jpg'  => 'image/jpeg',
-        'png'  => 'image/png',
+        'bmp'  => 'image/bmp',
         'webp' => 'image/webp',
     ];
 
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Customer\Repositories\CustomerRepository  $customerRepository
      * @return void
      */
-    public function __construct(
-        protected CustomerRepository $customerRepository,
-        protected SubscribersListRepository $subscriptionRepository
-    ) {}
+    public function __construct(protected CustomerRepository $customerRepository)
+    {
+        $this->guard = 'api';
+
+        auth()->setDefaultDriver($this->guard);
+
+        $this->middleware('auth:'.$this->guard);
+    }
+
+    /**
+     * Returns a current customer data.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function get($rootValue, array $args , GraphQLContext $context)
+    {
+        if (! bagisto_graphql()->validateAPIUser($this->guard)) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.invalid-header'),
+                'Invalid request header parameter.'
+            );
+        }
+
+        if (bagisto_graphql()->guard($this->guard)->check()) {
+            $customer = $this->customerRepository->find(bagisto_graphql()->guard($this->guard)->user()->id);
+
+            return [
+                'status'   => ! empty($customer),
+                'customer' => $customer,
+                'message'  => trans('bagisto_graphql::app.shop.customer.customer-details')
+            ];
+        }
+
+        return [
+            'status'   => false,
+            'customer' => null,
+            'message'  => trans('bagisto_graphql::app.shop.customer.no-login-customer')
+        ];
+    }
 
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        $customer = bagisto_graphql()->authorize();
+        if (! bagisto_graphql()->validateAPIUser($this->guard)) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.response.invalid-header'),
+                'Invalid request header parameter.'
+            );
+        }
 
-        bagisto_graphql()->validate($args, [
-            'first_name'                => 'required|string',
-            'last_name'                 => 'required|string',
+        if (! bagisto_graphql()->guard($this->guard)->check()) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.customer.no-login-customer'),
+                'No Login Customer Found.'
+            );
+        }
+
+        $customer = bagisto_graphql()->guard($this->guard)->user();
+
+        $data = $args['input'];
+
+        $isPasswordChanged = false;
+
+        $validator = Validator::make($data, [
+            'first_name'                => 'required',
+            'last_name'                 => 'required',
             'gender'                    => 'required|in:Other,Male,Female',
             'date_of_birth'             => 'date|before:today',
-            'email'                     => 'required|email|unique:customers,email,'.$customer->id,
+            'email'                     => 'required|email|unique:customers,email,' . $customer->id,
             'new_password'              => 'confirmed|min:6|required_with:current_password',
             'new_password_confirmation' => 'required_with:new_password',
             'current_password'          => 'required_with:new_password',
             'image.*'                   => 'mimes:bmp,jpeg,jpg,png,webp',
-            'upload_type'               => 'nullable|in:path,base64,file',
-            'phone'                     => 'required|unique:customers,phone,'.$customer->id,
+            'phone'                     => 'required|unique:customers,phone,' . $customer->id,
             'subscribed_to_news_letter' => 'nullable',
         ]);
 
-        $args['subscribed_to_news_letter'] = $args['subscribed_to_news_letter'] ?? 0;
+        if ($validator->fails()) {
+            $errorMessage = [];
 
-        $isPasswordChanged = false;
+            foreach ($validator->messages()->toArray() as $message) {
+                $errorMessage[] = is_array($message) ? $message[0] : $message;
+            }
+
+            throw new CustomException(
+                implode(" ,", $errorMessage),
+                'Invalid Update Customer Details.'
+            );
+        }
 
         try {
-            $args['date_of_birth'] = ! empty($args['date_of_birth']) ? Carbon::createFromTimeString(str_replace('/', '-', $args['date_of_birth']).'00:00:01')->format('Y-m-d') : '';
+            $data['date_of_birth'] = ! empty($data['date_of_birth']) ? Carbon::createFromTimeString(str_replace('/', '-', $data['date_of_birth']).'00:00:01')->format('Y-m-d') : '';
 
-            if (! empty($args['current_password'])) {
-                if (Hash::check($args['current_password'], $customer->password)) {
+            if (! empty($data['oldpassword'])) {
+
+                if (Hash::check($data['oldpassword'], $customer->password)) {
                     $isPasswordChanged = true;
 
-                    $args['password'] = bcrypt($args['new_password']);
+                    $data['password'] = bcrypt($data['password']);
                 } else {
-                    throw new CustomException(trans('bagisto_graphql::app.shop.customers.account.profile.password-unmatch'));
+                    throw new CustomException(
+                        trans('bagisto_graphql::app.shop.customer.account.profile.unmatch'),
+                        'Wrong Customer Password.'
+                    );
                 }
             } else {
-                unset($args['new_password']);
+                unset($data['password']);
             }
 
             Event::dispatch('customer.update.before');
 
-            if ($customer = $this->customerRepository->update($args, $customer->id)) {
+            if ($customer = $this->customerRepository->update($data, $customer->id)) {
                 if ($isPasswordChanged) {
                     Event::dispatch('user.admin.update-password', $customer);
                 }
 
                 Event::dispatch('customer.update.after', $customer);
 
-                $this->subscriptionRepository->updateOrCreate(
-                    ['email' => $args['email']],
-                    [
-                        'customer_id'   => $customer->id,
-                        'channel_id'    => core()->getCurrentChannel()->id,
-                        'is_subscribed' => $args['subscribed_to_news_letter'],
-                        'token'         => uniqid(),
-                    ]
-                );
-
                 if (
-                    ! empty($args['upload_type'])
-                    && $args['upload_type'] == 'file'
+                    ! empty($data['upload_type'])
+                    && in_array($data['upload_type'], ['path', 'base64'])
+                    && ! empty($data['image_url'])
                 ) {
-                    if (! empty($args['image'])) {
-                        $customer->image = $args['image']->storePublicly('customer/'.$customer->id);
+                    $data['save_path'] = 'customer/'.$customer->id;
 
-                        $customer->save();
-                    } else {
-                        if ($customer->image) {
-                            Storage::delete($customer->image);
-                        }
-
-                        $customer->image = null;
-
-                        $customer->save();
-                    }
-                }
-
-                if (
-                    ! empty($args['upload_type'])
-                    && in_array($args['upload_type'], ['path', 'base64'])
-                    && ! empty($args['image_url'])
-                ) {
-                    $args['save_path'] = 'customer/'.$customer->id;
-
-                    bagisto_graphql()->saveImageByURL($customer, $args, 'image_url');
+                    bagisto_graphql()->saveImageByURL($customer, $data, 'image_url');
                 }
 
                 return [
-                    'success'  => true,
-                    'message'  => trans('bagisto_graphql::app.shop.customers.account.profile.update-success'),
+                    'status'   => ! empty($customer),
                     'customer' => $customer,
+                    'message'  => trans('bagisto_graphql::app.shop.customer.account.profile.edit-success')
                 ];
             } else {
-                throw new CustomException(trans('bagisto_graphql::app.shop.customers.account.profile.update-fail'));
+                throw new CustomException(
+                    trans('bagisto_graphql::app.shop.customer.account.profile.edit-fail'),
+                    'Customer Profile Update Failed.'
+                );
             }
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                'Customer Update Failed.'
+            );
         }
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $customer = bagisto_graphql()->authorize();
+        if (! bagisto_graphql()->validateAPIUser($this->guard)) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.response.invalid-header'),
+                'Invalid request parameters.'
+            );
+        }
 
-        bagisto_graphql()->validate($args, [
-            'password' => 'required',
-        ]);
+        if (! bagisto_graphql()->guard($this->guard)->check()) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.customer.no-login-customer'),
+                'Customer not logged in'
+            );
+        }
+
+        $data = $args['input'];
+
+        $customer = bagisto_graphql()->guard($this->guard)->user();
 
         try {
-            if (Hash::check($args['password'], $customer->password)) {
-                if ($customer->orders->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_PROCESSING])->first()) {
+            if (Hash::check($data['password'], $customer->password)) {
+
+                if ($customer->orders->whereIn('status', ['pending', 'processing'])->first()) {
                     return [
-                        'success' => false,
-                        'message' => trans('bagisto_graphql::app.shop.customers.account.profile.order-pending'),
+                        'status'  => false,
+                        'success' =>  trans('bagisto_graphql::app.shop.customer.account.profile.order-pending')
                     ];
                 } else {
                     $this->customerRepository->delete($customer->id);
 
                     return [
-                        'success' => true,
-                        'message' => trans('bagisto_graphql::app.shop.customers.account.profile.delete-success'),
+                        'status'  => true,
+                        'success' => trans('bagisto_graphql::app.shop.customer.account.profile.delete-success')
                     ];
                 }
             }
 
             return [
-                'success' => false,
-                'message' => trans('bagisto_graphql::app.shop.customers.account.profile.wrong-password'),
+                'status'  => false,
+                'success' => trans('bagisto_graphql::app.shop.customer.account.profile.wrong-password')
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                'Something went wrong, try again'
+            );
         }
     }
 }

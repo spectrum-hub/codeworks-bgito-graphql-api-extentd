@@ -2,28 +2,35 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Sales\Orders;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterOrderShipment extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
-        if (isset($input['shipment_date'])) {
-            $input['created_at'] = $input['shipment_date'];
+        $arguments = $this->getFilterParams($input);
 
-            unset($input['shipment_date']);
+        // Convert the shipment_date parameter to created_at parameter
+         if (isset($arguments['shipment_date'])) {
+            $arguments['created_at'] = $arguments['shipment_date'];
+
+            unset($arguments['shipment_date']);
         }
 
-        if (isset($input['tracking_number'])) {
-            $input['track_number'] = $input['tracking_number'];
+        // Convert the inventory_source parameter to inventory_source_name parameter
+        if (isset($arguments['tracking_number'])) {
+            $arguments['track_number'] = $arguments['tracking_number'];
 
-            unset($input['tracking_number']);
+            unset($arguments['tracking_number']);
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }

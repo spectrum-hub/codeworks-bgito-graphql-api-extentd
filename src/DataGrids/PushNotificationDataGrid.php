@@ -4,10 +4,19 @@ namespace Webkul\GraphQLAPI\DataGrids;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Webkul\Core\Models\Channel;
+use Webkul\Core\Models\Locale;
 use Webkul\DataGrid\DataGrid;
 
 class PushNotificationDataGrid extends DataGrid
 {
+    /**
+     * Default sort order of datagrid.
+     *
+     * @var string
+     */
+    protected $sortOrder = 'desc';
+
     /**
      * Set index columns, ex: id.
      *
@@ -16,31 +25,61 @@ class PushNotificationDataGrid extends DataGrid
     protected $primaryColumn = 'notification_id';
 
     /**
+     * If paginated then value of pagination.
+     *
+     * @var int
+     */
+    protected $itemsPerPage = 10;
+
+    /**
      * Prepare query builder.
      *
      * @return \Illuminate\Database\Query\Builder
      */
     public function prepareQueryBuilder()
     {
-        $queryBuilder = DB::table('push_notifications as pn')
-            ->select(
-                'pn.id as notification_id',
-                'pn.image',
-                'pn.type',
-                'pn.product_category_id',
-                'pn.status',
-                'pn.created_at',
-                'pn.updated_at',
-                'pn_trans.title',
-                'pn_trans.content',
-                'pn_trans.channel',
-                'pn_trans.locale',
-            )
-            ->leftJoin('push_notification_translations as pn_trans', 'pn.id', '=', 'pn_trans.push_notification_id')
-            ->where('pn_trans.locale', core()->getRequestedLocaleCode())
-            ->groupBy('pn.id');
+        if (core()->getRequestedChannelCode() === 'all') {
+            $whereInChannels = Channel::query()->pluck('code')->toArray();
+        } else {
+            $whereInChannels = [core()->getRequestedChannelCode()];
+        }
 
-        $this->addFilter('notification_id', 'pn.id');
+        if (core()->getRequestedLocaleCode() === 'all') {
+            $whereInLocales = Locale::query()->pluck('code')->toArray();
+        } else {
+            $whereInLocales = [core()->getRequestedLocaleCode()];
+        }
+
+        $queryBuilder = DB::table('push_notification_translations as pn_trans')
+        ->leftJoin('push_notifications as pn', 'pn_trans.push_notification_id', '=', 'pn.id')
+        ->leftJoin('channels as ch', 'pn_trans.channel', '=', 'ch.code')
+        ->leftJoin('channel_translations as ch_t', 'ch.id', '=', 'ch_t.channel_id')
+        ->addSelect(
+            'pn_trans.push_notification_id as notification_id',
+            'pn_trans.title',
+            'pn_trans.content',
+            'pn_trans.channel',
+            'pn_trans.locale',
+            'pn.image',
+            'pn.type',
+            'pn.product_category_id',
+            'pn.status',
+            'pn.created_at',
+            'pn.updated_at',
+            'ch_t.name as channel_name'
+        );
+
+        $queryBuilder->groupBy('pn_trans.push_notification_id', 'pn_trans.channel', 'pn_trans.locale');
+
+        $queryBuilder->whereIn('pn_trans.locale', $whereInLocales);
+        $queryBuilder->whereIn('pn_trans.channel', $whereInChannels);
+
+        $this->addFilter('notification_id', 'pn_trans.push_notification_id');
+        $this->addFilter('title', 'pn_trans.title');
+        $this->addFilter('content', 'pn_trans.content');
+        $this->addFilter('channel_name', 'ch_t.name');
+        $this->addFilter('status', 'pn.status');
+        $this->addFilter('type', 'pn.type');
 
         return $queryBuilder;
     }
@@ -55,7 +94,7 @@ class PushNotificationDataGrid extends DataGrid
         $this->addColumn([
             'index'      => 'notification_id',
             'label'      => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.id'),
-            'type'       => 'integer',
+            'type'       => 'number',
             'searchable' => true,
             'filterable' => true,
             'sortable'   => true,
@@ -64,16 +103,12 @@ class PushNotificationDataGrid extends DataGrid
         $this->addColumn([
             'index'      => 'image',
             'label'      => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.image'),
-            'type'       => 'string',
-            'searchable' => false,
-            'filterable' => false,
-            'sortable'   => false,
-            'closure'    => function ($row) {
-                if ($row->image) {
-                    return '<img src='.Storage::url($row->image).' class="max-h-[65px] min-h-[65px] min-w-[65px] max-w-[65px] rounded" width="65px" height="65px" />';
-                }
-
-                return '<img src='.bagisto_asset('images/product-placeholders/front.svg', 'admin').' class="max-h-[65px] min-h-[65px] min-w-[65px] max-w-[65px] rounded" width="65px" height="65px" />';
+            'type'       => 'html',
+            'searchable' => true,
+            'filterable' => true,
+            'sortable'   => true,
+            'closure'    => function ($value) {
+                return '<img src='.Storage::url($value->image).' class="img-thumbnail" width="100px" height="70px" />';
             },
         ]);
 
@@ -96,62 +131,22 @@ class PushNotificationDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'              => 'type',
-            'label'              => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.notification-type'),
-            'type'               => 'string',
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
-            'filterable_options' => [
-                [
-                    'label' => trans('bagisto_graphql::app.admin.settings.notification.create.option-type.others'),
-                    'value' => 'others',
-                ],
-                [
-                    'label' => trans('bagisto_graphql::app.admin.settings.notification.create.option-type.product'),
-                    'value' => 'product',
-                ],
-                [
-                    'label' => trans('bagisto_graphql::app.admin.settings.notification.create.option-type.category'),
-                    'value' => 'category',
-                ],
-            ],
-            'sortable'           => true,
-            'closure'            => function ($value) {
-                switch ($value->type) {
-                    case 'others':
-                        return trans('bagisto_graphql::app.admin.settings.notification.create.option-type.others');
-
-                    case 'product':
-                        return trans('bagisto_graphql::app.admin.settings.notification.create.option-type.product');
-
-                    case 'category':
-                        return trans('bagisto_graphql::app.admin.settings.notification.create.option-type.category');
-                }
-            },
+            'index'      => 'type',
+            'label'      => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.notification-type'),
+            'type'       => 'price',
+            'searchable' => true,
+            'filterable' => true,
+            'sortable'   => true,
         ]);
 
-        $channels = core()->getAllChannels();
-
-        if ($channels->count() > 1) {
-            $this->addColumn([
-                'index'              => 'channel',
-                'label'              => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.channel-name'),
-                'type'               => 'string',
-                'filterable'         => true,
-                'filterable_type'    => 'dropdown',
-                'filterable_options' => $channels
-                    ->map(function ($channel) {
-                        return [
-                            'label' => $channel->name,
-                            'value' => $channel->code,
-                        ];
-                    })
-                    ->values()
-                    ->toArray(),
-                'sortable'           => true,
-                'visibility'         => false,
-            ]);
-        }
+        $this->addColumn([
+            'index'      => 'channel_name',
+            'label'      => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.store-view'),
+            'type'       => 'string',
+            'searchable' => false,
+            'filterable' => false,
+            'sortable'   => false,
+        ]);
 
         $this->addColumn([
             'index'      => 'status',
@@ -160,19 +155,19 @@ class PushNotificationDataGrid extends DataGrid
             'searchable' => true,
             'filterable' => true,
             'sortable'   => true,
-            'closure'    => function ($row) {
-                if ($row->status) {
-                    return '<p class="label-active">'.trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.status.enabled').'</p>';
+            'closure'    => function ($value) {
+                if ($value->status) {
+                    return '<span class="badge badge-md badge-success">'.trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.status.enabled').'</span>';
                 }
 
-                return '<p class="label-info">'.trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.status.disabled').'</p>';
+                return '<span class="badge badge-md badge-danger">'.trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.status.disabled').'</span>';
             },
         ]);
 
         $this->addColumn([
             'index'      => 'created_at',
             'label'      => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.created-at'),
-            'type'       => 'date',
+            'type'       => 'datetime',
             'searchable' => false,
             'filterable' => true,
             'sortable'   => true,
@@ -181,7 +176,7 @@ class PushNotificationDataGrid extends DataGrid
         $this->addColumn([
             'index'      => 'updated_at',
             'label'      => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.updated-at'),
-            'type'       => 'date',
+            'type'       => 'datetime',
             'searchable' => false,
             'filterable' => true,
             'sortable'   => true,
@@ -203,6 +198,9 @@ class PushNotificationDataGrid extends DataGrid
                 'url'    => function ($row) {
                     return route('admin.settings.push_notification.edit', $row->notification_id);
                 },
+                'condition' => function () {
+                    return true;
+                },
             ]);
         }
 
@@ -213,6 +211,9 @@ class PushNotificationDataGrid extends DataGrid
                 'method' => 'POST',
                 'url'    => function ($row) {
                     return route('admin.settings.push_notification.delete', $row->notification_id);
+                },
+                'condition' => function () {
+                    return true;
                 },
             ]);
         }
@@ -228,7 +229,7 @@ class PushNotificationDataGrid extends DataGrid
         if (bouncer()->hasPermission('settings.push_notification.massdelete')) {
             $this->addMassAction([
                 'title'  => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.delete'),
-                'url'    => route('admin.settings.push_notification.mass_delete'),
+                'url'    => route('admin.settings.push_notification.mass-delete'),
                 'method' => 'POST',
             ]);
         }
@@ -236,7 +237,7 @@ class PushNotificationDataGrid extends DataGrid
         if (bouncer()->hasPermission('settings.push_notification.massupdate')) {
             $this->addMassAction([
                 'title'   => trans('bagisto_graphql::app.admin.settings.notification.index.datagrid.update'),
-                'url'     => route('admin.settings.push_notification.mass_update'),
+                'url'     => route('admin.settings.push_notification.mass-update'),
                 'method'  => 'POST',
                 'options' => [
                     [

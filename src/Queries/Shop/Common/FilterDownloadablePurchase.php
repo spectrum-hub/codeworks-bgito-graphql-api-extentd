@@ -2,34 +2,43 @@
 
 namespace Webkul\GraphQLAPI\Queries\Shop\Common;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterDownloadablePurchase extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
-        if (isset($input['title'])) {
-            $input['product_name'] = $input['title'];
-            unset($input['title']);
+        $arguments = $this->getFilterParams($input);
+         
+        // Convert the title parameter to product_name parameter
+        if (isset($arguments['title'])) {
+            $arguments['product_name'] = $arguments['title'];
+            unset($arguments['title']);
         }
 
-        if (isset($input['date'])) {
-            $input['created_at'] = $input['date'];
-            unset($input['date']);
+        // Convert the grand_total parameter to base_grand_total parameter
+        if (isset($arguments['date'])) {
+            $arguments['created_at'] = $arguments['date'];
+            unset($arguments['date']);
         }
 
-        if (isset($input['remaining_download'])) {
-            $remainingDownload = $input['remaining_download'];
-            unset($input['remaining_download']);
+        // Convert the grand_total parameter to base_grand_total parameter
+        if (isset($arguments['remaining_download'])) {
+            $remainingDownload = $arguments['remaining_download'];
+            unset($arguments['remaining_download']);
 
-            return $query->whereRaw('download_bought - download_used = ?', [$remainingDownload])
-                ->where($input);
+           return $query->whereRaw('download_bought - download_used = ?',[$remainingDownload])
+                  ->where($arguments);
+            
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }

@@ -2,308 +2,325 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Shop\Customer;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use Exception;
 use Illuminate\Support\Facades\Event;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
+use App\Http\Controllers\Controller;
 use Webkul\Checkout\Facades\Cart;
-use Webkul\Checkout\Repositories\CartItemRepository;
 use Webkul\Checkout\Repositories\CartRepository;
-use Webkul\GraphQLAPI\Validators\CustomException;
+use Webkul\Checkout\Repositories\CartItemRepository;
 use Webkul\Product\Repositories\ProductRepository;
+use Webkul\Shipping\Facades\Shipping;
+use Illuminate\Support\Facades\Validator;
+use Webkul\GraphQLAPI\Validators\Customer\CustomException;
 
 class CartMutation extends Controller
 {
     /**
+     * Contains current guard
+     *
+     * @var array
+     */
+    protected $guard;
+
+    /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Checkout\Repositories\CartRepository  $cartRepository
+     * @param  \Webkul\Checkout\Repositories\CartItemRepository  $cartItemRepository
+     * @param  \Webkul\Product\Repositories\ProductRepository  $productRepository
      * @return void
      */
     public function __construct(
-        protected CartRepository $cartRepository,
-        protected CartItemRepository $cartItemRepository,
-        protected ProductRepository $productRepository
-    ) {
-        Auth::setDefaultDriver('api');
+       protected CartRepository $cartRepository,
+       protected CartItemRepository $cartItemRepository,
+       protected ProductRepository $productRepository
+    )
+    {
+        $this->guard = 'api';
 
-        $this->middleware('auth:api');
+        auth()->setDefaultDriver($this->guard);
+
+        $this->middleware('auth:'.$this->guard);
     }
 
     /**
      * Returns a current cart detail.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function cart(mixed $rootValue, array $args, GraphQLContext $context)
+    public function cart($rootValue, array $args , GraphQLContext $context)
     {
         try {
             return Cart::getCart();
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
-        }
-    }
-
-    public function cartInfos(mixed $rootValue, array $args, GraphQLContext $context)
-    {
-        try {
-
-            /**
-             * 
-             * {"args":{"id":"75"}}
-             * {"rootValue":null}
-             * {
-             *  "context":{
-             *      "user":null,"request":{
-             *           "attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
-             *  }
-             * }
-             * 
-             */
-
-            
-            $cartId = $args['id'];
-            
-            $cart = $this->cartRepository->findOrFail($cartId);
-
-            if(!empty($cart['id'])){
-
-                Cart::setCart($cart);
-             
-                return Cart::getCart();
-            }
-            return Cart::getCart();
-            
-            
-        } catch (\Exception $e) {
-            return $e->getMessage();
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Returns a current cart's detail.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function cartItems(mixed $rootValue, array $args, GraphQLContext $context)
+    public function cartItems($rootValue, array $args , GraphQLContext $context)
     {
         try {
             $cart = Cart::getCart();
 
             return $cart?->items ?? [];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
-        }
-    }
-
-    
-
-    public function storeNew(mixed $rootValue, array $args, GraphQLContext $context)
-    {
-        bagisto_graphql()->validate($args, [
-            'quantity'   => 'required|min:1',
-            'product_id' => 'required|integer|exists:products,id',
-        ]);
-
-        
-
-        try {
-
-            if(!empty($args['cart_id'])){
-
-                $cart = $this->cartRepository->findOrFail($args['cart_id']);
-
-                Cart::setCart($cart);
-             
-            }
-            
-            $product = $this->productRepository->findOrFail($args['product_id']);
-
-            $data = bagisto_graphql()->manageInputForCart($product, $args);
-
-            $cart = Cart::addProduct($product, $data);
-
-            return [
-                'success' => ! empty($cart),
-                'message' => ! empty($cart)
-                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.add-to-cart')
-                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.add-to-cart'),
-                'cart'    => $cart,
-            ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'quantity'   => 'required|min:1',
-            'product_id' => 'required|integer|exists:products,id',
+        if (empty($args['input'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter'),
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter')
+            );
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
+            'quantity' => 'required|min:1',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException(
+                $validator->messages(),
+                $validator->messages()
+            );
+        }
+
+        if (empty($data['product_id'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter'),
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter')
+            );
+        }
+
         try {
-            $product = $this->productRepository->findOrFail($args['product_id']);
+            $product = $this->productRepository->findOrFail($data['product_id']);
 
-            $data = bagisto_graphql()->manageInputForCart($product, $args);
+            $data = bagisto_graphql()->manageInputForCart($product, $data);
 
-            $cart = Cart::addProduct($product, $data);
+            $cart = Cart::addProduct($data['product_id'], $data);
+
+            if (! empty($cart)) {
+                return [
+                    'status'  => true,
+                    'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.success-add-to-cart'),
+                    'cart'    => $cart,
+                ];
+            }
 
             return [
-                'success' => ! empty($cart),
-                'message' => ! empty($cart)
-                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.add-to-cart')
-                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.add-to-cart'),
+                'status'  => true,
+                'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.fail-add-to-cart'),
                 'cart'    => $cart,
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(), $e->getMessage(),
+                $e->getMessage(), $e->getMessage()
+            );
         }
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'qty'                => 'required|array',
-            'qty.*.cart_item_id' => 'required|integer|exists:cart_items,id',
-            'qty.*.quantity'     => 'required|integer|min:1',
-        ]);
+        if (empty($args['input'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter'),
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter')
+            );
+        }
+
+        $data = $args['input'];
+
+        if (empty($data['qty'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter'),
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter')
+            );
+        }
 
         try {
             $qty = [];
 
-            foreach ($args['qty'] as $item) {
-                if (! $this->cartItemRepository->find($item['cart_item_id'])) {
-                    throw new CustomException(trans('bagisto_graphql::app.shop.checkout.cart.item.fail.item-not-found'));
+            foreach ($data['qty'] as $item) {
+                if (
+                    isset($item['cart_item_id'])
+                    && $item['quantity']
+                ) {
+                    $qty[$item['cart_item_id']] = $item['quantity'];
                 }
-
-                $qty[$item['cart_item_id']] = $item['quantity'] ?: 1;
             }
 
-            $args['qty'] = $qty;
+            $data['qty'] = $qty;
 
-            $cartUpdated = Cart::updateItems($args);
+            if (Cart::updateItems($data)) {
+                return [
+                    'status'  => true,
+                    'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.success-update-to-cart'),
+                    'cart'    => Cart::getCart(),
+                ];
+            }
 
             return [
-                'success' => $cartUpdated,
-                'message' => $cartUpdated
-                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.update-to-cart')
-                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.update-to-cart'),
+                'status'  => false,
+                'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.fail-update-to-cart'),
                 'cart'    => Cart::getCart(),
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'id' => 'required|integer|exists:cart_items,id',
-        ]);
+        if (empty($args['id'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter'),
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter')
+            );
+        }
 
         try {
-            $isRemoved = Cart::removeItem($args['id']);
+            $cartItem = $this->cartItemRepository->find($args['id']);
 
-            Cart::collectTotals();
+            if ($cartItem) {
+                Event::dispatch('checkout.cart.delete.before', $args['id']);
+
+                Shipping::removeAllShippingRates();
+
+                $this->cartItemRepository->delete($cartItem->id);
+
+                Cart::collectTotals();
+
+                Event::dispatch('checkout.cart.delete.after', $args['id']);
+
+                return [
+                    'status'  => true,
+                    'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.success-delete-cart-item'),
+                    'cart'    => Cart::getCart(),
+                ];
+            }
 
             return [
-                'success' => $isRemoved,
-                'message' => $isRemoved
-                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.delete-cart-item')
-                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.delete-cart-item'),
+                'status'  => true,
+                'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.fail-delete-cart-item'),
                 'cart'    => Cart::getCart(),
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Remove all resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\Response
      */
-    public function deleteAll(mixed $rootValue, array $args, GraphQLContext $context)
+    public function deleteAll($rootValue, array $args, GraphQLContext $context)
     {
-        $cart = Cart::getCart();
-
-        if (! $cart) {
-            throw new CustomException(trans('bagisto_graphql::app.shop.checkout.cart.item.fail.not-found'));
-        }
-
         try {
-            Event::dispatch('checkout.cart.delete.all.before', $cart);
+            if ($cart = Cart::getCart()) {
+                Event::dispatch('checkout.cart.delete.all.before', $cart);
 
-            $isDeleted = $this->cartRepository->delete($cart->id);
+                $this->cartRepository->delete($cart->id);
 
-            Cart::resetCart();
+                Cart::resetCart();
 
-            Event::dispatch('checkout.cart.delete.all.after', $cart);
+                Event::dispatch('checkout.cart.delete.all.after', $cart);
+
+                return [
+                    'status'  => true,
+                    'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.success-all-remove'),
+                    'cart'    => $cart,
+                ];
+            }
 
             return [
-                'success' => $isDeleted,
-                'message' => $isDeleted
-                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.all-remove')
-                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.all-remove'),
+                'status'  => false,
+                'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.fail-all-remove'),
+                'cart'    => $cart,
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
 
     /**
      * Move the specified resource to Wishlist.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function moveToWishlist(mixed $rootValue, array $args, GraphQLContext $context)
+    public function move($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
-            'id' => 'required|integer|exists:cart_items,id',
-        ]);
+        if (empty($args['id'])) {
+            throw new CustomException(
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter'),
+                trans('bagisto_graphql::app.shop.checkout.cart.item.error-invalid-parameter')
+            );
+        }
 
         try {
-            $isMoved = Cart::moveToWishlist($args['id']);
+            if (Cart::moveToWishlist($args['id'])) {
+                return [
+                    'status'  => true,
+                    'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.success-moved-cart-item'),
+                    'cart'    => Cart::getCart(),
+                ];
+            }
 
             return [
-                'success' => $isMoved,
-                'message' => $isMoved
-                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.move-to-wishlist')
-                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.move-to-wishlist'),
+                'status'  => false,
+                'message' => trans('bagisto_graphql::app.shop.checkout.cart.item.fail-moved-cart-item'),
                 'cart'    => Cart::getCart(),
             ];
-        } catch (\Exception $e) {
-            throw new CustomException($e->getMessage());
+        } catch (Exception $e) {
+            throw new CustomException(
+                $e->getMessage(),
+                $e->getMessage()
+            );
         }
     }
-    
 }

@@ -1,47 +1,49 @@
 #Shop\Customer\CompareProduct Related APIs
 extend type Query @guard(with: ["api"]){
-    compareProducts (
-        input: FilterCompareProductsInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\CompareProductQuery")
-    ): [CompareProduct!] @paginate(
-        type: "PAGINATOR",
-        model: "Webkul\\Customer\\Models\\CompareItem",
-        defaultCount: 10
-    )
+    compareProducts(input: FilterCompareProductsInput): [CustomerCompareProduct!]  @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@compareProducts")
 
-    compareProduct (
-        id: ID @eq
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Shop\\Customer\\CompareProductQuery@getItem")
-    ): CompareProduct @find(model: "Webkul\\Customer\\Models\\CompareItem")
+    compareProduct(id: ID @eq): CustomerCompareProduct @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@compareProducts")
 }
 
 extend type Mutation @guard(with: ["api"]) {
     addToCompare(
-        productId: ID! @rename(attribute: "product_id")
-    ): CompareProductResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@store")
+        input: AddToCompareInput!
+    ): AddToCompareResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@store")
 
     removeFromCompareProduct(
-        productId: ID! @rename(attribute: "product_id")
-    ): StatusResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@delete")
+        input: AddToCompareInput!
+    ): RemoveCompareResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@delete")
 
-    removeAllCompareProducts: StatusResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@deleteAll")
+    removeAllCompareProducts: RemoveCompareResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CompareMutation@deleteAll")
 }
 
-type CompareProductResponse {
-    success: Boolean
-    message: String
-    compareProduct: CompareProduct
-    cart: Cart @field(resolver: "Webkul\\Checkout\\Cart@getCart")
+input AddToCompareInput {
+    productId: ID! @rename(attribute: "product_id")
+}
+
+type AddToCompareResponse {
+    success: String
+    compareProduct: [CustomerCompareProduct]
+    cart: Cart @field(resolver: "Webkul\\GraphQLAPI\\Cart@getCart")
+}
+
+type RemoveCompareResponse {
+    status: Boolean
+    success: String
+    compareProduct: [CustomerCompareProduct]
+    cart: Cart @field(resolver: "Webkul\\GraphQLAPI\\Cart@getCart")
 }
 
 input FilterCompareProductsInput {
+    page: Int
+    limit: Int
     id: Int
     productId: Int @rename(attribute: "product_id")
     productName: String @rename(attribute: "product_name")
     price: Float
 }
 
-type CompareProduct {
+type CustomerCompareProduct {
     id: ID!
     productId: ID! @rename(attribute: "product_id")
     customerId: ID! @rename(attribute: "customer_id")
@@ -49,5 +51,5 @@ type CompareProduct {
     updatedAt: DateTime! @rename(attribute: "updated_at")
     product: Product! @belongsTo(relation: "product")
     customer: Customer!
-    cart: Cart @field(resolver: "Webkul\\Checkout\\Cart@getCart")
+    cart: Cart @field(resolver: "Webkul\\GraphQLAPI\\Cart@getCart")
 }

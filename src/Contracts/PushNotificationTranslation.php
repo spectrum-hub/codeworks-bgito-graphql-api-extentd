@@ -2,4 +2,6 @@
 
 namespace Webkul\GraphQLAPI\Contracts;
 
-interface PushNotificationTranslation {}
+interface PushNotificationTranslation
+{
+}

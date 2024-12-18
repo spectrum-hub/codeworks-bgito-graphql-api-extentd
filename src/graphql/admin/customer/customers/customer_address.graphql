@@ -1,33 +1,39 @@
 # Customer\CustomerAddress Related APIs
 extend type Query @guard(with: ["admin-api"]) {
-    customerAddresses(
-        input: FilterCustomerAddressInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\CommonFilter")
-    ): [Address!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Customer\\Models\\CustomerAddress"
-    )
+    customerAddresses(input: FilterCustomerAddressInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Customer\\FilterCustomerAddress")): [CustomerAddress!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Customer\\Models\\CustomerAddress")
 
-    customerAddress(id: ID @eq): Address @find(model: "Webkul\\Customer\\Models\\CustomerAddress")
+    customerAddress(id: ID @eq): CustomerAddress @find(model: "Webkul\\Customer\\Models\\CustomerAddress")
 }
 
 extend type Mutation @guard(with: ["admin-api"]) {
     createCustomerAddress(
-        input: CreateCustomerAddressInput! @spread
-    ): AddressResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@store")
+        input: CreateCustomerAddressInput!
+    ): CustomerAddress  @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@store")
 
     updateCustomerAddress(
         id: ID!,
-        input: CreateCustomerAddressInput! @spread
-    ): AddressResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@update")
+        input: CreateCustomerAddressInput!
+    ): CustomerAddress  @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@update")
 
-    setAsDefaultAddress(
-        id: ID!
-        customerId: ID! @rename(attribute: "customer_id")
-    ): AddressResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@setAsDefaultAddress")
+    deleteCustomerAddress(id: ID!): Customer  @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@delete")
+}
 
-    deleteCustomerAddress(id: ID!): StatusResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Customer\\CustomerAddressMutation@delete")
+input CreateCustomerAddressInput {
+    customerId: Int! @rename(attribute: "customer_id")
+    companyName: String @rename(attribute: "company_name")
+    firstName: String! @rename(attribute: "first_name")
+    lastName: String! @rename(attribute: "last_name")
+    email: String!
+    gender: String!
+    address1: String!
+    address2: String
+    country: String!
+    state: String!
+    city: String!
+    postcode: String! @rules(apply: ["integer"])
+    phone: String! @rules(apply: ["integer"])
+    vatId: String @rename(attribute: "vat_id")
+    defaultAddress: Boolean @rename(attribute: "default_address")
 }
 
 input FilterCustomerAddressInput {
@@ -36,7 +42,8 @@ input FilterCustomerAddressInput {
     companyName: String @rename(attribute: "company_name")
     firstName: String @rename(attribute: "first_name")
     lastName: String @rename(attribute: "last_name")
-    address: String
+    address1: String
+    address2: String
     country: String
     state: String
     city: String
@@ -46,18 +53,27 @@ input FilterCustomerAddressInput {
     defaultAddress: Boolean @rename(attribute: "default_address")
 }
 
-input CreateCustomerAddressInput {
-    customerId: Int! @rename(attribute: "customer_id")
+type CustomerAddress {
+    id: ID!
+    customerId: ID! @rename(attribute: "customer_id")
     companyName: String @rename(attribute: "company_name")
-    vatId: String @rename(attribute: "vat_id")
     firstName: String! @rename(attribute: "first_name")
     lastName: String! @rename(attribute: "last_name")
-    address: String!
+    email: String
+    gender: String
+    address1: String!
+    address2: String
+    country: String!
+    countryName: String! @rename(attribute: "country_name")
+    state: String!
+    stateName: String @rename(attribute: "state_name")
     city: String!
     postcode: String!
-    country: String!
-    state: String!
     phone: String!
-    email: String!
+    vatId: String @rename(attribute: "vat_id")
+    addressType: String @rename(attribute: "address_type")
     defaultAddress: Boolean @rename(attribute: "default_address")
+    createdAt: DateTime @rename(attribute: "created_at")
+    updatedAt: DateTime @rename(attribute: "updated_at")
+    success: String
 }

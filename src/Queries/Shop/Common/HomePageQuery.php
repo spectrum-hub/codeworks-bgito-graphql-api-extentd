@@ -2,19 +2,16 @@
 
 namespace Webkul\GraphQLAPI\Queries\Shop\Common;
 
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 use Webkul\Attribute\Repositories\AttributeRepository;
+use Webkul\Product\Repositories\ProductRepository;
+use Webkul\Product\Repositories\ProductFlatRepository;
 use Webkul\Category\Repositories\CategoryRepository;
 use Webkul\Customer\Repositories\CustomerRepository;
+use Webkul\Customer\Repositories\WishlistRepository;
+use Webkul\Shop\Repositories\ThemeCustomizationRepository;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
-use Webkul\GraphQLAPI\Validators\CustomException;
-use Webkul\Marketing\Repositories\SearchSynonymRepository;
-use Webkul\Product\Helpers\Toolbar;
-use Webkul\Product\Repositories\ElasticSearchRepository;
-use Webkul\Product\Repositories\ProductRepository;
-use Webkul\Theme\Repositories\ThemeCustomizationRepository;
 
 class HomePageQuery extends BaseFilter
 {
@@ -26,46 +23,56 @@ class HomePageQuery extends BaseFilter
     /**
      * Create a new controller instance.
      *
-     * @return void
+     * @param  \Webkul\Product\Repositories\AttributeRepository  $attributeRepository
+     * @param  \Webkul\Product\Repositories\ProductRepository  $productRepository
+     * @param  \Webkul\Product\Repositories\ProductFlatRepository  $productFlatRepository
+     * @param  \Webkul\Category\Repositories\CategoryRepository $categoryRepository
+     * @param  \Webkul\Customer\Repositories\CustomerRepository $customerRepository
+     * @param  \Webkul\Customer\Repositories\WishlistRepository $wishlistRepository
+     * @param  \Webkul\Velocity\Repositories\VelocityMetadataRepository $velocityMetadataRepository
+    * @return void
      */
     public function __construct(
         protected AttributeRepository $attributeRepository,
         protected ProductRepository $productRepository,
-        protected ElasticSearchRepository $elasticSearchRepository,
+        protected ProductFlatRepository $productFlatRepository,
         protected CategoryRepository $categoryRepository,
         protected CustomerRepository $customerRepository,
-        protected SearchSynonymRepository $searchSynonymRepository,
-        protected ThemeCustomizationRepository $themeCustomizationRepository,
-        protected Toolbar $productHelperToolbar
-    ) {}
+        protected WishlistRepository $wishlistRepository,
+        protected ThemeCustomizationRepository $themeCustomizationRepository
+    ) {
+    }
 
     /**
-     * Get the default channel.
-     *
+     * @param mixed $rootValue
+     * @param array $args
+     * @param \Nuwave\Lighthouse\Support\Contracts\GraphQLContext $context
      * @return \Webkul\Core\Contracts\Channel
      */
-    public function getDefaultChannel()
+    public function getDefaultChannel($rootValue, array $args, GraphQLContext $context)
     {
         return core()->getDefaultChannel();
     }
 
     /**
-     * Get the theme customization data.
-     *
-     * @return \Illuminate\Support\Collection
+     *@param mixed $rootValue
+     * @param array $args
+     * @param \Nuwave\Lighthouse\Support\Contracts\GraphQLContext $context
+     * @return mixed
      */
-    public function getThemeCustomizationData()
+    public function getThemeCustomizationData($rootValue, array $args, GraphQLContext $context)
     {
         visitor()->visit();
 
         $customizations = $this->themeCustomizationRepository->orderBy('sort_order')->findWhere([
             'status'     => self::STATUS,
-            'channel_id' => core()->getCurrentChannel()->id,
+            'channel_id' => core()->getCurrentChannel()->id
         ]);
 
         $result = $customizations->map(function ($item) {
 
             if ($item->type == 'image_carousel') {
+
                 $images['images'] = [];
 
                 foreach ($item->options['images'] as $i => $element) {
@@ -76,8 +83,8 @@ class HomePageQuery extends BaseFilter
             }
 
             if ($item->type == 'static_content') {
-                $staticContent['css'] = $item->options['css'];
 
+                $staticContent['css'] = $item->options['css'];
                 $staticContent['html'] = [];
 
                 $staticContent['html'] = str_replace('src="" data-src="storage', 'src="'.asset('/storage'), $item->options['html']);
@@ -85,26 +92,21 @@ class HomePageQuery extends BaseFilter
                 $item->options = $staticContent;
             }
 
-            if (
-                $item->type == 'product_carousel'
-                || $item->type == 'category_carousel'
-            ) {
+            if ($item->type == 'product_carousel' || $item->type == 'category_carousel') {
+
                 if (isset($item->options['title'])) {
-                    $options['title'] = $item->options['title'];
+                    $options['title'] =  $item->options['title'];
                 }
 
-                $options['filters'] = [];
+                $options['filters'] =  [];
 
                 $i = 0;
 
-                if (isset($item->options['filters'])) {
-                    foreach ($item->options['filters'] as $key => $value) {
-                        $options['filters'][$i]['key'] = $key;
+                foreach ($item->options['filters'] as $key => $value) {
+                    $options['filters'][$i]['key'] = $key;
+                    $options['filters'][$i]['value'] = $value;
 
-                        $options['filters'][$i]['value'] = $value;
-
-                        $i++;
-                    }
+                    $i++;
                 }
 
                 $item->options = $options;
@@ -119,19 +121,20 @@ class HomePageQuery extends BaseFilter
     /**
      * Get all categories in tree format.
      *
-     * @return mixed
+     * @param mixed $rootValue
+     * @param array $args
+     * @param \Nuwave\Lighthouse\Support\Contracts\GraphQLContext $context
      *
-     * @throws CustomException
+     * @return mixed
      */
-    public function getCategories(mixed $rootValue, array $args)
+    public function getCategories($rootValue, array $args, GraphQLContext $context)
     {
-        if (! empty($args['get_category_tree'])) {
-            return $this->categoryRepository->getVisibleCategoryTree(core()->getCurrentChannel()->root_category_id);
+        if (! empty($args['id'])) {
+            $categories = $this->categoryRepository->getVisibleCategoryTree($args['id']);
         }
 
         if (! empty($args['input'])) {
             $filters = array_filter($args['input']);
-
             $params = [];
 
             foreach ($filters as $input) {
@@ -150,77 +153,70 @@ class HomePageQuery extends BaseFilter
                 $params = array_merge(['locale' => app()->getLocale()], $params);
             }
 
-            return $this->categoryRepository->getAll($params);
+            $categories = $this->categoryRepository->getAll($params);
         }
 
-        throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        return $categories;
     }
 
     /**
      * Get all products.
-     *
+     * @param mixed $rootValue
+     * @param array $args
+     * @param \Nuwave\Lighthouse\Support\Contracts\GraphQLContext $context
      * @return \Illuminate\Support\Collection
      */
-    public function getAllProducts(mixed $rootValue, array $args)
+    public function getAllProducts($query, $input)
     {
-        $searchEngine = core()->getConfigData('catalog.products.search.engine') === 'elastic'
-            ? core()->getConfigData('catalog.products.search.storefront_mode')
-            : 'database';
-
-        $filters = array_filter($args['input']);
-
-        foreach ($filters as $input) {
-            $params[$input['key']] = $input['value'];
-        }
-
-        $params = array_merge($params, [
-            'channel_id'           => core()->getCurrentChannel()->id,
-            'status'               => 1,
-            'visible_individually' => 1,
-        ]);
-
-        $products = $searchEngine === 'elastic'
-            ? $this->searchFromElastic($params)
-            : $this->searchFromDatabase($params);
-
-        return [
-            'paginator_info' => bagisto_graphql()->getPaginatorInfo($products),
-            'data'           => $products->getCollection(),
-        ];
+        return $this->searchFromDatabase($query, $input);
     }
 
     /**
      * Search product from database.
      *
+     *
      * @return \Illuminate\Support\Collection
      */
-    public function searchFromDatabase(array $params = [])
+    public function searchFromDatabase($query, $input)
     {
-        $params['url_key'] ??= null;
+        $params = [
+            'status'               => 1,
+            'visible_individually' => 1,
+            'url_key'              => null,
+        ];
+
+        $filters = array_filter($input);
+
+        foreach ($filters as $input) {
+            $params[$input['key']] = $input['value'];
+        }
+
+        if (! empty($params['search'])) {
+            $params['name'] = $params['search'];
+        }
 
         $prefix = DB::getTablePrefix();
 
-        $qb = $this->productRepository->distinct()
-            ->select('products.*')
-            ->leftJoin('products as variants', DB::raw('COALESCE('.$prefix.'variants.parent_id, '.$prefix.'variants.id)'), '=', 'products.id')
-            ->leftJoin('product_price_indices', function ($join) {
-                $customerGroup = $this->customerRepository->getCurrentGroup();
+        $qb = app(ProductRepository::class)->distinct()
+                ->select('products.*')
+                ->leftJoin('products as variants', DB::raw('COALESCE('.$prefix.'variants.parent_id, '.$prefix.'variants.id)'), '=', 'products.id')
+                ->leftJoin('product_price_indices', function ($join) {
+                    $customerGroup = $this->customerRepository->getCurrentGroup();
 
-                $join->on('products.id', '=', 'product_price_indices.product_id')
-                    ->where('product_price_indices.customer_group_id', $customerGroup->id);
-            });
+                    $join->on('products.id', '=', 'product_price_indices.product_id')
+                        ->where('product_price_indices.customer_group_id', $customerGroup->id);
+                });
 
-        /**
-         * Handle category_id filtering.
-         */
+        if (!empty($params['category_slug'])) {
+            $categoryIds = $this->categoryRepository->findBySlug($params['category_slug'])->id;
+
+            $qb->leftJoin('product_categories', 'product_categories.product_id', '=', 'products.id')
+            ->where('product_categories.category_id', $categoryIds);
+        }
+
         if (! empty($params['category_id'])) {
             $qb->leftJoin('product_categories', 'product_categories.product_id', '=', 'products.id')
                 ->whereIn('product_categories.category_id', explode(',', $params['category_id']));
-        }
-
-        if (! empty($params['channel_id'])) {
-            $qb->leftJoin('product_channels', 'products.id', '=', 'product_channels.product_id')
-                ->where('product_channels.channel_id', explode(',', $params['channel_id']));
         }
 
         if (! empty($params['type'])) {
@@ -264,13 +260,7 @@ class HomePageQuery extends BaseFilter
                 ->where($alias.'.attribute_id', $attribute->id);
 
             if ($attribute->code == 'name') {
-                $synonyms = $this->searchSynonymRepository->getSynonymsByQuery(urldecode($params['name']));
-
-                $qb->where(function ($subQuery) use ($alias, $synonyms) {
-                    foreach ($synonyms as $synonym) {
-                        $subQuery->orWhere($alias.'.text_value', 'like', '%'.$synonym.'%');
-                    }
-                });
+                $qb->where($alias.'.text_value', 'like', '%'.urldecode($params['name']).'%');
             } elseif ($attribute->code == 'url_key') {
                 if (empty($params['url_key'])) {
                     $qb->whereNotNull($alias.'.text_value');
@@ -301,30 +291,35 @@ class HomePageQuery extends BaseFilter
          * Filter query by attributes.
          */
         if ($attributes->isNotEmpty()) {
-            $qb->where(function ($filterQuery) use ($qb, $params, $attributes) {
-                $aliases = [
-                    'products' => 'product_attribute_values',
-                    'variants' => 'variant_attribute_values',
-                ];
+            $qb->leftJoin('product_attribute_values', 'products.id', '=', 'product_attribute_values.product_id');
 
-                foreach ($aliases as $table => $tableAlias) {
-                    $filterQuery->orWhere(function ($subFilterQuery) use ($qb, $params, $attributes, $table, $tableAlias) {
-                        foreach ($attributes as $attribute) {
-                            $alias = $attribute->code.'_'.$tableAlias;
+            $qb->where(function ($filterQuery) use ($params, $attributes) {
+                foreach ($attributes as $attribute) {
+                    $filterQuery->orWhere(function ($attributeQuery) use ($params, $attribute) {
+                        $attributeQuery = $attributeQuery->where('product_attribute_values.attribute_id', $attribute->id);
 
-                            $qb->leftJoin('product_attribute_values as '.$alias, function ($join) use ($table, $alias, $attribute) {
-                                $join->on($table.'.id', '=', $alias.'.product_id');
+                        $values = explode(',', $params[$attribute->code]);
 
-                                $join->where($alias.'.attribute_id', $attribute->id);
-                            });
-
-                            $subFilterQuery->whereIn($alias.'.'.$attribute->column_name, explode(',', $params[$attribute->code]));
+                        if ($attribute->type == 'price') {
+                            $attributeQuery->whereBetween('product_attribute_values.'.$attribute->column_name, [
+                                core()->convertToBasePrice(current($values)),
+                                core()->convertToBasePrice(end($values)),
+                            ]);
+                        } else {
+                            $attributeQuery->whereIn('product_attribute_values.'.$attribute->column_name, $values);
                         }
                     });
                 }
             });
 
+            /**
+             * This is key! if a product has been filtered down to the same number of attributes that we filtered on,
+             * we know that it has matched all of the requested filters.
+             *
+             * To Do (@devansh): Need to monitor this.
+             */
             $qb->groupBy('products.id');
+            $qb->havingRaw('COUNT(*) = '.count($attributes));
         }
 
         /**
@@ -343,20 +338,9 @@ class HomePageQuery extends BaseFilter
 
                     $qb->leftJoin('product_attribute_values as '.$alias, function ($join) use ($alias, $attribute) {
                         $join->on('products.id', '=', $alias.'.product_id')
-                            ->where($alias.'.attribute_id', $attribute->id);
-
-                        if ($attribute->value_per_channel) {
-                            if ($attribute->value_per_locale) {
-                                $join->where($alias.'.channel', core()->getRequestedChannelCode())
-                                    ->where($alias.'.locale', core()->getRequestedLocaleCode());
-                            } else {
-                                $join->where($alias.'.channel', core()->getRequestedChannelCode());
-                            }
-                        } else {
-                            if ($attribute->value_per_locale) {
-                                $join->where($alias.'.locale', core()->getRequestedLocaleCode());
-                            }
-                        }
+                            ->where($alias.'.attribute_id', $attribute->id)
+                            ->where($alias.'.channel', core()->getRequestedChannelCode())
+                            ->where($alias.'.locale', core()->getRequestedLocaleCode());
                     })
                         ->orderBy($alias.'.'.$attribute->column_name, $sortOptions['order']);
                 }
@@ -368,43 +352,7 @@ class HomePageQuery extends BaseFilter
             return $qb->inRandomOrder();
         }
 
-        $qb = $qb->groupBy('products.id');
-
-        $limit = $this->getPerPageLimit($params);
-
-        return $qb->paginate($limit, ['*'], 'page', $params['page'] ?? 1);
-    }
-
-    /**
-     * Search product from elastic search.
-     *
-     * @return \Illuminate\Support\Collection
-     */
-    public function searchFromElastic(array $params = [])
-    {
-        $currentPage = $params['page'] ?? 1;
-
-        $limit = $this->getPerPageLimit($params);
-
-        $sortOptions = $this->getSortOptions($params);
-
-        $indices = $this->elasticSearchRepository->search($params, [
-            'from'  => ($currentPage * $limit) - $limit,
-            'limit' => $limit,
-            'sort'  => $sortOptions['sort'],
-            'order' => $sortOptions['order'],
-        ]);
-
-        $query = $this->productRepository
-            ->whereIn('id', $indices['ids'])
-            ->orderBy(DB::raw('FIELD(id, '.implode(',', $indices['ids']).')'));
-
-        return new LengthAwarePaginator(
-            $indices['total'] ? $query->get() : [],
-            $indices['total'],
-            $limit,
-            $currentPage
-        );
+        return $qb->groupBy('products.id');
     }
 
     /**
@@ -421,61 +369,5 @@ class HomePageQuery extends BaseFilter
     public function getSortOptions(array $params): array
     {
         return product_toolbar()->getOrder($params);
-    }
-
-    /**
-     * Display a listing of the resource.
-     *
-     * @return array
-     */
-    public function getFilterAttributes(mixed $rootValue, array $args, GraphQLContext $context)
-    {
-        $slug = $args['category_slug'];
-
-        $filterData = [];
-
-        $availableSortOrders = [];
-
-        $category = $this->categoryRepository->whereHas('translation', function ($q) use ($slug) {
-            $q->where('slug', urldecode($slug));
-        })->first();
-
-        if (empty($filterableAttributes = $category?->filterableAttributes)) {
-            $filterableAttributes = $this->attributeRepository->getFilterableAttributes();
-        }
-
-        $maxPrice = $this->productRepository->getMaxPrice(['category_id' => $category?->id]);
-
-        foreach ($filterableAttributes as $key => $filterAttribute) {
-            if ($filterAttribute->code == 'price') {
-                continue;
-            }
-
-            $optionIds = $filterAttribute->options->pluck('id')->toArray();
-
-            $filterData[$filterAttribute->code] = [
-                'key'    => $filterAttribute->code,
-                'value'  => $optionIds,
-            ];
-        }
-
-        foreach ($this->productHelperToolbar->getAvailableOrders() as $key => $label) {
-            $availableSortOrders[$key] = [
-                'key'      => $key,
-                'title'    => $label['title'],
-                'value'    => $label['value'],
-                'sort'     => $label['sort'],
-                'order'    => $label['order'],
-                'position' => $label['position'],
-            ];
-        }
-
-        return [
-            'min_price'         => 0,
-            'max_price'         => $maxPrice,
-            'filter_attributes' => $filterableAttributes,
-            'filter_data'       => $filterData,
-            'sort_orders'       => $availableSortOrders,
-        ];
     }
 }

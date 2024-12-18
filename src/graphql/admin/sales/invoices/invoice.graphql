@@ -1,36 +1,21 @@
 # Seles\Invoice Related APIs
 extend type Query @guard(with: ["admin-api"]) {
-    invoices(
-        input: FilterInvoiceInput
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Invoices\\FilterInvoice")
-    ): [Invoice!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\Invoice"
-    )
+    invoices(input: FilterInvoiceInput @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Invoices\\FilterInvoice")): [Invoice!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\Invoice")
 
     invoice(id: ID @eq): Invoice @find(model: "Webkul\\Sales\\Models\\Invoice")
 
-    invoiceItems(
-        input: FilterInvoiceItemInput!
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\CommonFilter")
-    ): [InvoiceItem!] @paginate(
-        type: "PAGINATOR"
-        defaultCount: 10
-        model: "Webkul\\Sales\\Models\\InvoiceItem"
-    )
+    invoiceItems(input: FilterInvoiceItemInput! @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Invoices\\FilterInvoiceItem")): [InvoiceItem!] @paginate(type: "PAGINATOR" defaultCount:10 model: "Webkul\\Sales\\Models\\InvoiceItem")
 
     invoiceItem(
         id: ID @eq,
-        input: FilterInvoiceItemInput!
-        @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\CommonFilter")
+        input: FilterInvoiceItemInput! @builder(method: "Webkul\\GraphQLAPI\\Queries\\Admin\\Sales\\Invoices\\FilterInvoiceItem")
     ): InvoiceItem @find(model: "Webkul\\Sales\\Models\\InvoiceItem")
 }
 
 extend type Mutation @guard(with: ["admin-api"]) {
     createInvoice(
-        input: CreateInvoiceInput! @spread
-    ): InvoiceResponse @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Invoices\\InvoiceMutation@store")
+        input: CreateInvoiceInput!
+    ): Invoice @field(resolver: "Webkul\\GraphQLAPI\\Mutations\\Admin\\Sales\\Invoices\\InvoiceMutation@store")
 }
 
 input FilterInvoiceInput {
@@ -52,19 +37,12 @@ input FilterInvoiceItemInput {
 
 input CreateInvoiceInput {
     orderId: Int! @rename(attribute: "order_id")
-    canCreateTransaction: Boolean! @rename(attribute: "can_create_transaction")
     invoiceData: [InvoiceDataInput!]! @rename(attribute: "invoice_data")
 }
 
 input InvoiceDataInput {
     orderItemId: Int! @rename(attribute: "order_item_id")
     quantity: Int!
-}
-
-type InvoiceResponse {
-    success: Boolean!
-    message: String
-    invoice: Invoice
 }
 
 type Invoice {
@@ -86,32 +64,22 @@ type Invoice {
     baseTaxAmount: Float @rename(attribute: "base_tax_amount")
     discountAmount: Float @rename(attribute: "discount_amount")
     baseDiscountAmount: Float @rename(attribute: "base_discount_amount")
-    shippingTaxAmount: Float @rename(attribute: "shipping_tax_amount")
-    baseShippingTaxAmount: Float @rename(attribute: "base_shipping_tax_amount")
-    subTotalInclTax: Float @rename(attribute: "sub_total_incl_tax")
-    baseSubTotalInclTax: Float @rename(attribute: "base_sub_total_incl_tax")
-    shippingAmountInclTax: Float @rename(attribute: "shipping_amount_incl_tax")
-    baseShippingAmountInclTax: Float @rename(attribute: "base_shipping_amount_incl_tax")
-    formattedPrice: FormattedPrice @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getInvoicePriceData")
     orderId: Int @rename(attribute: "order_id")
-    transactionId: String @rename(attribute: "transaction_id")
-    reminders: String
-    nextReminderAt: String @rename(attribute: "next_reminder_at")
+    orderAddressId: Int @rename(attribute: "order_address_id")
     createdAt: String @rename(attribute: "created_at")
     updatedAt: String @rename(attribute: "updated_at")
-    order: Order! @belongsTo
+    formattedPrice: FormattedInvoicePriceData @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getInvoicePriceData")
+    transactionId: String @rename(attribute: "transaction_id")
     items: [InvoiceItem!] @hasMany
-    customer: Customer @morphTo
-    channel: Channel @morphTo
-    address: Address @belongsTo
+    order: Order! @belongsTo
 }
 
 type InvoiceItem {
     id: ID!
-    parentId:Int @rename(attribute: "parent_id")
+    sku: String
+    type: String
     name: String
     description: String
-    sku: String
     qty:Int
     price: Float!
     basePrice: Float! @rename(attribute: "base_price")
@@ -119,23 +87,44 @@ type InvoiceItem {
     baseTotal: Float! @rename(attribute: "base_total")
     taxAmount: Float @rename(attribute: "tax_amount")
     baseTaxAmount: Float @rename(attribute: "base_tax_amount")
-    discountPercent: Float @rename(attribute: "discount_percent")
-    discountAmount: Float @rename(attribute: "discount_amount")
-    baseDiscountAmount: Float @rename(attribute: "base_discount_amount")
-    priceInclTax: Float @rename(attribute: "price_incl_tax")
-    basePriceInclTax: Float @rename(attribute: "base_price_incl_tax")
-    totalInclTax: Float @rename(attribute: "total_incl_tax")
-    baseTotalInclTax: Float @rename(attribute: "base_total_incl_tax")
     productId: ID! @rename(attribute: "product_id")
     productType: String @rename(attribute: "product_type")
     orderItemId: ID! @rename(attribute: "order_item_id")
     invoiceId: ID! @rename(attribute: "invoice_id")
-    additional: ItemAdditional @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Common\\FilterItem@additional")
+    parentId:Int @rename(attribute: "parent_id")
+    additional: String @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Shop\\Common\\FilterCart@additional")
+    discountPercent: Float @rename(attribute: "discount_percent")
+    discountAmount: Float @rename(attribute: "discount_amount")
+    baseDiscountAmount: Float @rename(attribute: "base_discount_amount")
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt:DateTime @rename(attribute: "updated_at")
-    formattedPrice: FormattedPrice @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getInvoiceItemPriceData")
+    formattedPrice: FormattedInvoiceItemPriceData @field(resolver: "Webkul\\GraphQLAPI\\Queries\\Sales\\FormattedPrice@getInvoiceItemPriceData")
     invoice: Invoice @belongsTo(relation: "invoice")
     orderItem: OrderItem @belongsTo(relation: "order_item")
     product: Product! @belongsTo(relation: "product")
     children: [InvoiceItem] @hasMany
+}
+
+type FormattedInvoicePriceData {
+    subTotal: String @rename(attribute: "sub_total")
+    baseSubTotal: String @rename(attribute: "base_sub_total")
+    grandTotal: String @rename(attribute: "grand_total")
+    baseGrandTotal: String @rename(attribute: "base_grand_total")
+    shippingAmount: String @rename(attribute: "shipping_amount")
+    baseShippingAmount: String @rename(attribute: "base_shipping_amount")
+    taxAmount: String @rename(attribute: "tax_amount")
+    baseTaxAmount: String @rename(attribute: "base_tax_amount")
+    discountAmount: String @rename(attribute: "discount_amount")
+    baseDiscountAmount: String @rename(attribute: "base_discount_amount")
+}
+
+type FormattedInvoiceItemPriceData {
+    price: String @rename(attribute: "price")
+    basePrice: String @rename(attribute: "base_price")
+    total: String @rename(attribute: "total")
+    baseTotal: String @rename(attribute: "base_total")
+    taxAmount: String @rename(attribute: "tax_amount")
+    baseTaxAmount: String @rename(attribute: "base_tax_amount")
+    grandTotal: String @rename(attribute: "grand_total")
+    baseGrandTotal: String @rename(attribute: "base_grand_total")
 }

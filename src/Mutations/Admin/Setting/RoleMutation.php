@@ -2,59 +2,58 @@
 
 namespace Webkul\GraphQLAPI\Mutations\Admin\Setting;
 
+use Exception;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Validator;
 use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
-use Webkul\GraphQLAPI\Validators\CustomException;
 use Webkul\User\Repositories\RoleRepository;
+use Webkul\GraphQLAPI\Validators\Admin\CustomException;
 
 class RoleMutation extends Controller
 {
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\User\Repositories\RoleRepository  $roleRepository
      * @return void
      */
-    public function __construct(protected RoleRepository $roleRepository) {}
-
-    /**
-     * Get the acl permissions.
-     *
-     * @return array
-     */
-    public function getAclPermissions()
+    public function __construct(protected RoleRepository $roleRepository)
     {
-        return config('acl');
     }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(mixed $rootValue, array $args, GraphQLContext $context)
+    public function store($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
+        if (empty($args['input'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $data = $args['input'];
+
+        $validator = Validator::make($data, [
             'name'            => 'required',
             'permission_type' => 'required',
             'description'     => 'required',
         ]);
 
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
         try {
             Event::dispatch('user.role.create.before');
 
-            $role = $this->roleRepository->create($args);
+            $role = $this->roleRepository->create($data);
 
             Event::dispatch('user.role.create.after', $role);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.settings.roles.create-success'),
-                'role'    => $role,
-            ];
-        } catch (\Exception $e) {
+            return $role;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -62,37 +61,45 @@ class RoleMutation extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function update(mixed $rootValue, array $args, GraphQLContext $context)
+    public function update($rootValue, array $args, GraphQLContext $context)
     {
-        bagisto_graphql()->validate($args, [
+        if (
+            empty($args['id'])
+            || empty($args['input'])
+        ) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $data = $args['input'];
+        $id = $args['id'];
+
+        $validator = Validator::make($data, [
             'name'            => 'required',
             'permission_type' => 'required',
-            'description'     => 'required',
         ]);
 
-        $role = $this->roleRepository->find($args['id']);
+        if ($validator->fails()) {
+            throw new CustomException($validator->messages());
+        }
+
+        $role = $this->roleRepository->find($id);
 
         if (! $role) {
             throw new CustomException(trans('bagisto_graphql::app.admin.settings.roles.not-found'));
         }
 
         try {
-            Event::dispatch('user.role.update.before', $role->id);
+            Event::dispatch('user.role.update.before', $id);
 
-            $role = $this->roleRepository->update($args, $role->id);
+            $role = $this->roleRepository->update($data, $id);
 
             Event::dispatch('user.role.update.after', $role);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.settings.roles.update-success'),
-                'role'    => $role,
-            ];
-        } catch (\Exception $e) {
+            return $role;
+        } catch (Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }
@@ -100,13 +107,18 @@ class RoleMutation extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @return array
-     *
-     * @throws CustomException
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function delete(mixed $rootValue, array $args, GraphQLContext $context)
+    public function delete($rootValue, array $args, GraphQLContext $context)
     {
-        $role = $this->roleRepository->find($args['id']);
+        if (empty($args['id'])) {
+            throw new CustomException(trans('bagisto_graphql::app.admin.response.error.invalid-parameter'));
+        }
+
+        $id = $args['id'];
+
+        $role = $this->roleRepository->find($id);
 
         if (! $role) {
             throw new CustomException(trans('bagisto_graphql::app.admin.settings.roles.not-found'));
@@ -117,17 +129,14 @@ class RoleMutation extends Controller
         }
 
         try {
-            Event::dispatch('user.role.delete.before', $args['id']);
+            Event::dispatch('user.role.delete.before', $id);
 
-            $role->delete();
+            $this->roleRepository->delete($id);
 
-            Event::dispatch('user.role.delete.after', $args['id']);
+            Event::dispatch('user.role.delete.after', $id);
 
-            return [
-                'success' => true,
-                'message' => trans('bagisto_graphql::app.admin.settings.roles.delete-success'),
-            ];
-        } catch (\Exception $e) {
+            return ['success' => trans('bagisto_graphql::app.admin.settings.roles.delete-success')];
+        } catch(Exception $e) {
             throw new CustomException($e->getMessage());
         }
     }

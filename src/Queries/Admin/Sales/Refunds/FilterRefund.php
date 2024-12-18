@@ -2,38 +2,46 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Sales\Refunds;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterRefund extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
-        if (isset($input['refund_date'])) {
-            $input['created_at'] = $input['refund_date'];
-            unset($input['refund_date']);
+        $arguments = $this->getFilterParams($input);
+
+        // Convert the refund_date parameter to created_at parameter
+         if (isset($arguments['refund_date'])) {
+            $arguments['created_at'] = $arguments['refund_date'];
+            unset($arguments['refund_date']);
         }
 
-        if (isset($input['refunded'])) {
-            $input['base_grand_total'] = $input['refunded'];
-            unset($input['refunded']);
+        // Convert the refunded parameter to base_grand_total parameter
+        if (isset($arguments['refunded'])) {
+            $arguments['base_grand_total'] = $arguments['refunded'];
+            unset($arguments['refunded']);
         }
 
-        if (isset($input['billed_to'])) {
+        // filter the relationship order addresses for Billing Address
+        if (isset($arguments['billed_to'])) {
             $billedTo = $input['billed_to'];
-            $billingName = $this->nameSplitter($billedTo);
+            $billingName =$this->nameSplitter($billedTo);
 
-            unset($input['billed_to']);
+            unset($arguments['billed_to']);
 
-            return $query->whereHas('order.addresses', function ($q) use ($billingName) {
+            return $query->whereHas('order.addresses',function ($q) use ($billingName) {
                 $q->where(['first_name' => $billingName['firstname'],
-                    'last_name'         => $billingName['lastname']]);
-            })->where($input);
+                    'last_name' => $billingName['lastname']]);
+            })->where($arguments);
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }

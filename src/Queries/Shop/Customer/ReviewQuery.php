@@ -2,54 +2,86 @@
 
 namespace Webkul\GraphQLAPI\Queries\Shop\Customer;
 
-use Illuminate\Database\Eloquent\Builder;
-use Webkul\GraphQLAPI\Queries\BaseFilter;
+use App\Http\Controllers\Controller;
 
-class ReviewQuery extends BaseFilter
+class ReviewQuery extends Controller
 {
     /**
-     * Filter query for the product review.
+     * Contains current guard
+     *
+     * @var array
      */
-    public function __invoke(Builder $query, array $input): Builder
+    protected $guard;
+
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
     {
-        if (auth()->guard('api')->check()) {
-            $customer = auth()->guard('api')->user();
-        }
+        $this->guard = 'api';
 
-        $query->distinct()
-            ->select('product_reviews.*')
-            ->leftJoin('product_flat', 'product_reviews.product_id', '=', 'product_flat.product_id')
-            ->where('product_reviews.customer_id', $customer->id ?? null);
+        auth()->setDefaultDriver($this->guard);
 
-        $filters = [
-            'product_reviews.id'         => $input['id'] ?? null,
-            'product_reviews.rating'     => $input['rating'] ?? null,
-            'product_reviews.product_id' => $input['product_id'] ?? null,
-            'product_reviews.status'     => $input['status'] ?? null,
-        ];
-
-        $query = $this->applyFilter($query, $filters);
-
-        $likeFilters = [
-            'product_reviews.name'  => $input['customer_name'] ?? null,
-            'product_reviews.title' => $input['title'] ?? null,
-            'product_flat.name'     => $input['product_name'] ?? null,
-        ];
-
-        $query = $this->applyLikeFilter($query, $likeFilters);
-
-        return $query;
+        $this->middleware('auth:'.$this->guard);
     }
 
     /**
-     * Get the specified review details.
+     * Returns loggedin customer's reviews data.
+     *
+     * @return \Illuminate\Http\Response
      */
-    public function getDetails(Builder $query): Builder
+    public function getReviews($query, $input)
     {
-        if (auth()->guard('api')->check()) {
-            $customer = auth()->guard('api')->user();
+        $params = $input;
+
+        $channel = core()->getRequestedChannelCode();
+        $locale = core()->getRequestedLocaleCode();
+
+        if (bagisto_graphql()->guard($this->guard)->check()) {
+            $params['customer_id'] = bagisto_graphql()->guard($this->guard)->user()->id;
         }
 
-        return $query->where('customer_id', $customer->id ?? null);
+        $qb = $query->distinct()
+            ->addSelect('product_reviews.*')
+            ->addSelect('product_flat.name as product_name')
+            ->leftJoin('product_flat', 'product_reviews.product_id', '=', 'product_flat.product_id')
+            ->where('product_flat.channel', $channel)
+            ->where('product_flat.locale', $locale);
+
+        if (! empty($params['id'])) {
+            $qb->where('product_reviews.id', $params['id']);
+        }
+
+        if (! empty($params['title'])) {
+            $qb->where('product_reviews.title', 'like', '%'.urldecode($params['title']).'%');
+        }
+
+        if (! empty($params['rating'])) {
+            $qb->where('product_reviews.rating', $params['rating']);
+        }
+
+        if (! empty($params['customer_id'])) {
+            $qb->where('product_reviews.customer_id', $params['customer_id']);
+        }
+
+        if (! empty($params['customer_name'])) {
+            $qb->where('product_reviews.name', 'like', '%'.urldecode($params['customer_name']).'%');
+        }
+
+        if (! empty($params['product_name'])) {
+            $qb->where('product_flat.name', 'like', '%'.urldecode($params['product_name']).'%');
+        }
+
+        if (! empty($params['product_id'])) {
+            $qb->where('product_reviews.product_id', $params['product_id']);
+        }
+
+        if (! empty($params['status'])) {
+            $qb->where('product_reviews.status', $params['status']);
+        }
+
+        return $qb;
     }
 }

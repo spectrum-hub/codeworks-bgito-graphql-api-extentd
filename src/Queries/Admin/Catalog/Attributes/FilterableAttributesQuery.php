@@ -10,14 +10,32 @@ class FilterableAttributesQuery extends BaseFilter
     /**
      * Create a new controller instance.
      *
+     * @param  \Webkul\Attribute\Repositories\AttributeRepository  $attributeRepository
      * @return void
      */
-    public function __construct(protected AttributeRepository $attributeRepository) {}
+    public function __construct(protected AttributeRepository $attributeRepository)
+    {
+        $this->_config = request('_config');
+    }
 
     /**
-     * Get the filterable attributes.
+     * filter the data .
      *
-     * @return \Webkul\Attribute\Contracts\Attribute
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
+     */
+    public function __invoke($query, $input)
+    {
+        $arguments = $this->getFilterParams($input);
+
+        return $query->where($arguments);
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\View\View
      */
     public function getFilterableAttributes()
     {

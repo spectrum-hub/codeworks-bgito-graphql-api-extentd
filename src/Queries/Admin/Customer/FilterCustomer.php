@@ -2,34 +2,47 @@
 
 namespace Webkul\GraphQLAPI\Queries\Admin\Customer;
 
-use Illuminate\Database\Eloquent\Builder;
 use Webkul\GraphQLAPI\Queries\BaseFilter;
 
 class FilterCustomer extends BaseFilter
 {
     /**
-     * Filter the query by the given input.
+     * filter the data .
+     *
+     * @param  object  $query
+     * @param  array $input
+     * @return \Illuminate\Http\Response
      */
-    public function __invoke(Builder $query, array $input): Builder
+    public function __invoke($query, $input)
     {
+        $arguments = $this->getFilterParams($input);
+
+        $groupName = "";
+
+        // Get first_name and last_name
         if (isset($arguments['name'])) {
-            $nameChanger = $this->nameSplitter($input['name']);
 
-            $input['first_name'] = $nameChanger['firstname'];
+            $nameChanger = $this->nameSplitter($arguments['name']);
 
-            $input['last_name'] = $nameChanger['lastname'];
+            $arguments['first_name'] = $nameChanger['firstname'];
 
-            unset($input['name']);
+            $arguments['last_name'] = $nameChanger['lastname'];
+
+            unset($arguments['name']);
         }
 
-        if (isset($input['group_name'])) {
-            $query = $query->whereHas('group', function ($q) use ($input) {
-                $q->where('state', $input['group_name']);
-            });
+        // filter the relationship Customer Group
+        if (isset($arguments['group_name'])) {
 
-            unset($input['group_name']);
+            $groupName = $input['group_name'];
+
+            unset($arguments['group_name']);
+
+            return $query->whereHas('group', function ($q) use ($groupName) {
+                $q->where('name', $groupName);
+            })->where($arguments);
         }
 
-        return $query->where($input);
+        return $query->where($arguments);
     }
 }
