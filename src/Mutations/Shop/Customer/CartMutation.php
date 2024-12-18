@@ -108,13 +108,13 @@ class CartMutation extends Controller
             'product_id' => 'required|integer|exists:products,id',
         ]);
 
-
+        
 
         try {
 
             if(!empty($args['cart_id'])){
 
-                $cart = $this->cartRepository->findOrFail($args['cart_id']);                
+                $cart = $this->cartRepository->findOrFail($args['cart_id']);
 
                 Cart::setCart($cart);
              
