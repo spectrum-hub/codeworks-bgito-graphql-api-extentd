@@ -68,14 +68,14 @@ class CartMutation extends Controller
         try {
 
             /**
-             * 
+             *
              * {"args":{"id":"75"}}
              * {"rootValue":null}
              * {"context":{
              *  "user":null,"request":{"attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
              *  }
              * }
-             * 
+             *
              */
 
             /// $args['id'] cart Id
