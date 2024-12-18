@@ -307,21 +307,7 @@ class CartMutation extends Controller
     }
 
 
-    public function writeLog($message, $level = 'INFO', $file = 'app.log') {
-        // Define the log directory and file
-        $logDir = '/var/www/logs';
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true); // Create the directory if it doesn't exist
-        }
-        $logFile = $logDir . '/' . $file;
-    
-        // Create the log message with a timestamp
-        $timestamp = date('Y-m-d H:i:s');
-        $logMessage = "[{$timestamp}] [{$level}] {$message}" . PHP_EOL;
-    
-        // Write the log message to the file
-        file_put_contents($logFile, $logMessage, FILE_APPEND);
-    }
+
 
     
 }
