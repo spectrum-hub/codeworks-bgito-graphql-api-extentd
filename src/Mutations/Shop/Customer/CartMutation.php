@@ -39,7 +39,10 @@ class CartMutation extends Controller
     public function cart(mixed $rootValue, array $args, GraphQLContext $context)
     {
         try {
-            return Cart::getCart();
+            return [
+                'aaa' => 'test'
+            ];
+            // return Cart::getCart();
         } catch (\Exception $e) {
             throw new CustomException($e->getMessage());
         }
