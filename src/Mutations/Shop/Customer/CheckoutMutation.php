@@ -807,9 +807,7 @@ class CheckoutMutation extends Controller
 
             $order = $this->orderRepository->create(Cart::prepareDataForOrder());
 
-            if (core()->getConfigData('general.api.pushnotification.private_key')) {
-                $this->prepareNotificationContent($order);
-            }
+            $this->prepareNotificationContent($order);
 
             Cart::deActivateCart();
 
@@ -866,7 +864,7 @@ class CheckoutMutation extends Controller
             'message'     => 'Order ('.$order->id.') placed by '. $order->customerFullName .' successfully.',
             'sound'       => 'default',
             'orderStatus' => $order->parcel_status,
-            'orderId'     => (string)$order->id,
+            'orderId'     => $order->id,
             'type'        => 'order',
         ];
 

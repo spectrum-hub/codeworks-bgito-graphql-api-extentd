@@ -68,12 +68,9 @@ class NewsletterSubscriberMutation extends Controller
             throw new CustomException($validator->messages());
         }
 
-        $alreadySubscribed = $this->subscriptionRepository->findOneByField('email', $data['email']);
-        
-        if (
-            $alreadySubscribed
-            && $alreadySubscribed->is_subscribed
-        ) {
+        $alreadySubscribed = $this->subscriptionRepository->findWhere(['email' => $data['email']]);
+
+        if ($alreadySubscribed->count()) {
             throw new CustomException(trans('bagisto_graphql::app.admin.marketing.communications.subscriptions.already-subscriber'));
         }
 
@@ -85,14 +82,11 @@ class NewsletterSubscriberMutation extends Controller
                 'channel_id'    => core()->getCurrentChannel()->id,
                 'is_subscribed' => 1,
                 'token'         => uniqid(),
-                'customer_id'   => bagisto_graphql()->guard('api')->user()->id
             ]);
 
             if (isset($subscription->id)) {
                 Event::dispatch('customer.subscribe.after', $subscription);
-                
-                $subscription->success = trans('bagisto_graphql::app.admin.marketing.communications.subscriptions.subscribed-success');
-                
+
                 return $subscription;
             }
 

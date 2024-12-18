@@ -88,13 +88,6 @@ class ProductListingQuery extends BaseFilter
             }
         }
 
-        if (
-            empty($args['categorySlug']) 
-            && empty($filterAttributes)
-        ) {
-            $filterAttributes = $this->attributeRepository->getFilterableAttributes();
-        }
-
         $filterData = [];
         foreach ($filterAttributes as $key => $filterAttribute) {
             if ($filterAttribute->code != 'price') {

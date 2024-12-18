@@ -3,7 +3,6 @@
 namespace Webkul\GraphQLAPI;
 
 use JWTAuth;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Webkul\Product\Repositories\ProductBundleOptionRepository;
@@ -136,13 +135,12 @@ class BagistoGraphql
                 'success' => false,
                 'message' => trans('bagisto_graphql::app.admin.response.error-login'),
             ];
-        } catch (\PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException $e) {
-            
+        } catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             //In case customer's session has expired
             if (
                 $token !== 0
@@ -182,9 +180,9 @@ class BagistoGraphql
         }
 
         if (! empty($imageUrl)) {
-            $validatedImg = $this->validatePath($imageUrl, 'images');
+            $valoidateImg = $this->validatePath($imageUrl, 'images');
 
-            if ($validatedImg) {
+            if ($valoidateImg) {
                 $imgName = basename($imageUrl);
 
                 $savePath = $imageDirPath.$imgName;
@@ -257,7 +255,7 @@ class BagistoGraphql
 
                     $extension = explode("/", $getImgMime)[1];
 
-                    $imgName = Str::random(30).'.'.$extension;
+                    $imgName = \Str::random(30).'.'.$extension;
 
                     $pathValidate = ($getImgMime && in_array($getImgMime, $allowedMimeTypes));
                 } else {

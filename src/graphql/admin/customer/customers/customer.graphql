@@ -60,6 +60,7 @@ type Customer {
     password: String!
     apiToken: String @rename(attribute: "api_token")
     customerGroupId: Int @rename(attribute: "customer_group_id")
+    subscribedToNewsLetter: Boolean @rename(attribute: "subscribed_to_news_letter")
     newsLetterSubscription: NewsLetterSubscription @hasOne(relation: "subscription")
     isVerified: Boolean @rename(attribute: "is_verified")
     isSuspended: Boolean @rename(attribute: "is_suspended")
@@ -77,10 +78,10 @@ type Customer {
 type NewsLetterSubscription {
     id: ID
     email: String
-    isSubscribed: Boolean @rename(attribute: "is_subscribed")
+    is_subscribed: Boolean
     token: String
-    customerId: ID @rename(attribute: "customer_id")
-    channelId: ID @rename(attribute: "channel_id")
+    customer_id: ID
+    channel_id: ID
     createdAt: DateTime @rename(attribute: "created_at")
     updatedAt: DateTime @rename(attribute: "updated_at")
 }
