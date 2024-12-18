@@ -305,9 +305,5 @@ class CartMutation extends Controller
             throw new CustomException($e->getMessage());
         }
     }
-
-
-
-
     
 }
