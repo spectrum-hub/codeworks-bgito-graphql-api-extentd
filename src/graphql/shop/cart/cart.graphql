@@ -1,25 +1,36 @@
 # Shop\Cart\CartDetail Related APIs
 extend type Query {
-  cartDetail: Cart
+  cartDetail(id: ID @eq): Cart
     @field(
       resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CartMutation@cart"
     )
 
-  cartItems: [CartItem!]
+  cartItems(id: ID @eq): [CartItem!]
     @field(
       resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CartMutation@cartItems"
     )
-
+  
   cartInfo(id: ID @eq): Cart
     @field(
       resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CartMutation@cartInfos"
     )
 }
 
+input FilterKeyValue {
+  key: String!
+  value: String!
+}
+ 
+
 extend type Mutation {
   addItemToCart(input: AddItemToCartInput! @spread): CartItemResponse
     @field(
       resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CartMutation@store"
+    )
+  
+  addItemToCartNew(input: AddItemToCartInputNew! @spread): CartItemResponse
+    @field(
+      resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CartMutation@storeNew"
     )
 
   updateItemToCart(input: UpdateItemToCartInput! @spread): CartItemResponse
@@ -42,6 +53,28 @@ extend type Mutation {
     @field(
       resolver: "Webkul\\GraphQLAPI\\Mutations\\Shop\\Customer\\CartMutation@moveToWishlist"
     )
+}
+
+input AddItemToCartInputNew {
+  cart_id: Int
+  isBuyNow: Boolean @rename(attribute: "is_buy_now")
+  productId: ID! @rename(attribute: "product_id")
+  quantity: Int!
+
+  # Used in case of adding Grouped Product to Cart
+  selectedConfigurableOption: Int
+    @rename(attribute: "selected_configurable_option")
+  superAttribute: [ConfigurableProductInput!]
+    @rename(attribute: "super_attribute")
+
+  # Used in case of adding Grouped Product to Cart
+  qty: [GroupedProductInput!]
+
+  # Used in case of adding Downloadable Product to Cart
+  links: [Int!]
+
+  # Used in case of adding Bundled Product to Cart
+  bundleOptions: [BundledOptionsInput!] @rename(attribute: "bundle_options")
 }
 
 input AddItemToCartInput {

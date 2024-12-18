@@ -45,6 +45,42 @@ class CartMutation extends Controller
         }
     }
 
+    public function cartInfos(mixed $rootValue, array $args, GraphQLContext $context)
+    {
+        try {
+
+            /**
+             * 
+             * {"args":{"id":"75"}}
+             * {"rootValue":null}
+             * {
+             *  "context":{
+             *      "user":null,"request":{
+             *           "attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
+             *  }
+             * }
+             * 
+             */
+
+            
+            $cartId = $args['id'];
+            
+            $cart = $this->cartRepository->findOrFail($cartId);
+
+            if(!empty($cart['id'])){
+
+                Cart::setCart($cart);
+             
+                return Cart::getCart();
+            }
+            return Cart::getCart();
+            
+            
+        } catch (\Exception $e) {
+            return $e->getMessage();
+        }
+    }
+
     /**
      * Returns a current cart's detail.
      *
@@ -63,39 +99,45 @@ class CartMutation extends Controller
         }
     }
 
-    public function cartInfos(mixed $rootValue, array $args, GraphQLContext $context)
+    
+
+    public function storeNew(mixed $rootValue, array $args, GraphQLContext $context)
     {
+        bagisto_graphql()->validate($args, [
+            'quantity'   => 'required|min:1',
+            'product_id' => 'required|integer|exists:products,id',
+        ]);
+
+
+
         try {
 
-            /**
-             *
-             * {"args":{"id":"75"}}
-             * {"rootValue":null}
-             * {
-             *  "context":{
-             *      "user":null,"request":{"attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
-             *  }
-             * }
-             *
-             */
+            if(!empty($args['cart_id'])){
 
-            /// $args['id'] cart Id
-            
-            $cart = $this->cartRepository->findOrFail($args['id']);
+                $cart = $this->cartRepository->findOrFail($args['cart_id']);                
 
-            Cart::setCart($cart);
+                Cart::setCart($cart);
              
-            return Cart::getCart();
-
-            // return [
-            //      "id" => $args['id'],
-            // ];
+            }
             
+            $product = $this->productRepository->findOrFail($args['product_id']);
+
+            $data = bagisto_graphql()->manageInputForCart($product, $args);
+
+            $cart = Cart::addProduct($product, $data);
+
+            return [
+                'success' => ! empty($cart),
+                'message' => ! empty($cart)
+                    ? trans('bagisto_graphql::app.shop.checkout.cart.item.success.add-to-cart')
+                    : trans('bagisto_graphql::app.shop.checkout.cart.item.fail.add-to-cart'),
+                'cart'    => $cart,
+            ];
         } catch (\Exception $e) {
-            return $e->getMessage();
+            throw new CustomException($e->getMessage());
         }
     }
-    
+
     /**
      * Store a newly created resource in storage.
      *
@@ -263,4 +305,23 @@ class CartMutation extends Controller
             throw new CustomException($e->getMessage());
         }
     }
+
+
+    public function writeLog($message, $level = 'INFO', $file = 'app.log') {
+        // Define the log directory and file
+        $logDir = '/var/www/logs';
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true); // Create the directory if it doesn't exist
+        }
+        $logFile = $logDir . '/' . $file;
+    
+        // Create the log message with a timestamp
+        $timestamp = date('Y-m-d H:i:s');
+        $logMessage = "[{$timestamp}] [{$level}] {$message}" . PHP_EOL;
+    
+        // Write the log message to the file
+        file_put_contents($logFile, $logMessage, FILE_APPEND);
+    }
+
+    
 }
