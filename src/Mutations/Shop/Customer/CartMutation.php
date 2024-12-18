@@ -71,8 +71,9 @@ class CartMutation extends Controller
              *
              * {"args":{"id":"75"}}
              * {"rootValue":null}
-             * {"context":{
-             *  "user":null,"request":{"attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
+             * {
+             *  "context":{
+             *      "user":null,"request":{"attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
              *  }
              * }
              *
