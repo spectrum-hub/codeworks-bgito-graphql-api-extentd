@@ -63,6 +63,38 @@ class CartMutation extends Controller
         }
     }
 
+    public function cartInfos(mixed $rootValue, array $args, GraphQLContext $context)
+    {
+        try {
+
+            /**
+             * 
+             * {"args":{"id":"75"}}
+             * {"rootValue":null}
+             * {"context":{
+             *  "user":null,"request":{"attributes":{},"request":{},"query":{},"server":{},"files":{},"cookies":{},"headers":{}}
+             *  }
+             * }
+             * 
+             */
+
+            /// $args['id'] cart Id
+            
+            $cart = $this->cartRepository->findOrFail($args['id']);
+
+            Cart::setCart($cart);
+             
+            return Cart::getCart();
+
+            // return [
+            //      "id" => $args['id'],
+            // ];
+            
+        } catch (\Exception $e) {
+            return $e->getMessage();
+        }
+    }
+    
     /**
      * Store a newly created resource in storage.
      *
